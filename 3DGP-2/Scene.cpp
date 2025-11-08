@@ -546,30 +546,30 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pIntroTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Background.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, pIntroTexture, 0, 3); // Root parameter 3
 	
-	CStandardShader* pIntroShader = new CStandardShader();
+	CIntroUIShader* pIntroShader = new CIntroUIShader();
 	pIntroShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 
 	CMaterial* pIntroMaterial = new CMaterial();
 	pIntroMaterial->SetTexture(pIntroTexture);
 	pIntroMaterial->SetShader(pIntroShader);
+	pIntroMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
 	m_pIntroImage->SetMaterial(0, pIntroMaterial);
 
 	// 버튼 텍스처 로드
-	m_pPlayButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pPlayButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Default.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonDefaultTexture, 0, 4); // Root parameter 4
+	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
 
 	m_pPlayButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pPlayButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Hover.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonHoverTexture, 0, 5); // Root parameter 5
+	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
 
 	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Default.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0, 6); // Root parameter 6
+	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
 
 	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pExitButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Hover.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0, 7); // Root parameter 7
+	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
 
 	// 시작 버튼 생성 및 설정
 	m_pPlayButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
@@ -577,29 +577,30 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	float fButtonHeight = 50.0f; // 버튼 세로 크기
 	float fButtonYOffset = -100.0f; // 화면 중앙에서 Y축으로 떨어진 거리
 	m_pPlayButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pPlayButton->SetPosition(0.0f, fButtonYOffset, 0.0f);
+	m_pPlayButton->SetPosition(0.0f, fButtonYOffset, -5.0f);
 
-	CStandardShader* pPlayButtonShader = new CStandardShader();
+	CIntroUIShader* pPlayButtonShader = new CIntroUIShader();
 	pPlayButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	CMaterial* pPlayButtonMaterial = new CMaterial();
 	pPlayButtonMaterial->SetTexture(m_pPlayButtonDefaultTexture);
 	pPlayButtonMaterial->SetShader(pPlayButtonShader);
+	pPlayButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
 	m_pPlayButton->SetMaterial(0, pPlayButtonMaterial);
 
 	// 나가기 버튼 생성 및 설정
 	m_pExitButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	float fExitButtonYOffset = fButtonYOffset - fButtonHeight - 20.0f; // 시작 버튼 아래에 배치
 	m_pExitButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pExitButton->SetPosition(0.0f, fExitButtonYOffset, 0.0f);
+	m_pExitButton->SetPosition(0.0f, fExitButtonYOffset, -5.0f);
 
-	CStandardShader* pExitButtonShader = new CStandardShader();
+	CIntroUIShader* pExitButtonShader = new CIntroUIShader();
 	pExitButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	CMaterial* pExitButtonMaterial = new CMaterial();
 	pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
 	pExitButtonMaterial->SetShader(pExitButtonShader);
+	pExitButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
 	m_pExitButton->SetMaterial(0, pExitButtonMaterial);
-
-	CreateShaderVariables(pd3dDevice, pd3dCommandList);
+	// CreateShaderVariables(pd3dDevice, pd3dCommandList); // IntroScene에서는 불필요
 }
 
 void CIntroScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)

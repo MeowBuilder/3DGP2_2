@@ -102,7 +102,7 @@ The `CPlayer` class, inheriting from `CGameObject`, defines the core behavior an
 ### `CAirplanePlayer` Specifics:
 - **Model Loading:** Loads a specific 3D model (e.g., "Model/Mi24.bin") to represent the airplane.
 - **Animated Parts:** Identifies and animates specific parts of the model, such as main and tail rotors, by rotating their corresponding `CGameObject` frames.
-- **Camera Mode Customization:** Overrides `ChangeCamera` to set specific physics parameters (friction, gravity, max velocity) and camera properties (offset, time lag, projection matrix, viewport, scissor rect) for each camera mode, tailored for an airplane.
+- **Camera Mode Customization:** Overrides `ChangeCamera` to set specific physics parameters (friction, gravity, max velocity) and camera properties (offset, time lag, projection matrix, viewport, scissor rect) and for each camera mode, tailored for an airplane.
 
 ### Workflow Summary:
 1.  **Initialization (`CAirplanePlayer` Constructor):**
@@ -236,7 +236,7 @@ These classes are fundamental for defining the geometric structure of 3D objects
 1.  **Mesh Creation:**
     *   **`CStandardMesh`:** `LoadMeshFromFile` reads vertex and index data from a custom file format, allocating CPU memory for vertex components and then creating corresponding `ID3D12Resource` (vertex/index buffers) on the GPU.
     *   **`CSkyBoxMesh`, `CTexturedRectMesh`:** Their constructors directly generate vertex data and create GPU buffers.
-    *   **`CHeightMapGridMesh`:** Its constructor takes a `CHeightMapImage` as context, calculates vertex positions (using `OnGetHeight`), colors (using `OnGetColor`), and texture coordinates, then creates GPU buffers for these components and an index buffer for `TRIANGLESTRIP` rendering.
+    *   **`CHeightMapGridMesh`:** Its constructor takes a `CHeightMapImage` as context, calculates vertex positions (using `OnGetHeight`), colors (using `OnGetColor`), and texture coordinates, then creates GPU buffers for these components and an `index buffer` for `TRIANGLESTRIP` rendering.
 2.  **Data Transfer:** `CreateBufferResource` (a helper function, likely defined elsewhere) is used to transfer vertex/index data from CPU memory to GPU default heaps, often using intermediate upload heaps.
 3.  **Rendering:** The `Render` method of each mesh type binds its specific vertex and/or index buffers to the graphics pipeline and issues a draw call.
 4.  **Resource Cleanup:** Destructors release GPU resources, and `ReleaseUploadBuffers` frees temporary upload heaps.
@@ -295,3 +295,9 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
     - Left-click on the "Exit" button terminates the application.
 - **CGameObject Enhancement:** Added `CMaterial* GetMaterial(int nIndex)` method to `CGameObject` to allow direct access to an object's material for dynamic texture changes.
 - **CTexture Double Free Fix:** Corrected an access violation error occurring in the `CTexture` destructor. The fix involved removing redundant `Release()` calls for `CTexture` objects (`m_pPlayButtonDefaultTexture`, `m_pPlayButtonHoverTexture`, `m_pExitButtonDefaultTexture`, `m_pExitButtonHoverTexture`) within `CIntroScene::ReleaseObjects`. These `CTexture` objects are managed by `CMaterial` through reference counting, and `CMaterial`'s destructor correctly handles their release, preventing double-free issues.
+- **Intro Scene Button Object Visibility Fix:** Resolved the issue where button objects were not visible in the intro scene.
+    - Removed an unnecessary `CreateShaderVariables()` call from `CIntroScene::BuildObjects()`, as the intro scene does not require scene-level light constant buffers.
+    - Introduced a new shader class, `CIntroUIShader`, inheriting from `CStandardShader`. This new shader overrides `CreateDepthStencilState()` to disable depth testing and depth writing, ensuring UI elements are always rendered on top without being obscured by other objects.
+    - Modified `CIntroScene::BuildObjects()` to use `CIntroUIShader` for the background image and all button objects instead of `CStandardShader`.
+- **Intro Scene Button Object Visibility Fix (Material Type):** Further resolved the issue where button objects were not visible in the intro scene. The `CMaterial` for the background image, play button, and exit button were updated in `CIntroScene::BuildObjects()` to explicitly set the `MATERIAL_ALBEDO_MAP` flag using `SetMaterialType(MATERIAL_ALBEDO_MAP)`. This ensures that the `PSStandard` shader correctly samples the albedo texture, allowing the UI elements to be rendered with their intended textures.
+- **Intro Scene Button Object Visibility Fix (Root Parameter Index Unification):** Finalized the fix for invisible UI buttons. All `CScene::CreateShaderResourceView` calls within `CIntroScene::BuildObjects()` for the background image, play button (default/hover), and exit button (default/hover) now use a unified `nRootParameterStartIndex` of `3`. This ensures all UI textures are bound to Root Parameter 3, which maps to the `gtxtAlbedoTexture` (t6) register in the `PSStandard` shader. Combined with the `MATERIAL_ALBEDO_MAP` flag set on their respective `CMaterial`s, this resolves the texture binding and shader sampling mismatch, allowing UI elements to render correctly.
