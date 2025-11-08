@@ -97,13 +97,14 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 	{
 		float3 normalW = input.normalW;
 		float3x3 TBN = float3x3(normalize(input.tangentW), normalize(input.bitangentW), normalize(input.normalW));
-		float3 vNormal = normalize(cNormalColor.rgb * 2.0f - 1.0f); //[0, 1] �� [-1, 1]
+		float3 vNormal = normalize(cNormalColor.rgb * 2.0f - 1.0f); //[0, 1] �� [-1, 1]
 		normalW = normalize(mul(vNormal, TBN));
 		cIllumination = Lighting(input.positionW, normalW);
 		cColor = lerp(cColor, cIllumination, 0.5f);
 	}
 
-	return(cColor);
+	// 텍스처 샘플링 로직을 무시하고 재질의 확산 색상으로 렌더링
+	return(gMaterial.m_cDiffuse);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
