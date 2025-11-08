@@ -39,7 +39,7 @@ The `CGameFramework` class serves as the core of the DirectX 12 based 3D applica
 2.  **Game Loop (`FrameAdvance`):**
     *   Updates game timer.
     *   Processes user input.
-    *   Animates game objects.
+    *   Animate game objects.
     *   Records rendering commands (resource barriers, clear RTV/DSV, set render targets, render scene/player).
     *   Executes command list.
     *   Synchronizes with GPU.
@@ -113,7 +113,7 @@ The `CPlayer` class, inheriting from `CGameObject`, defines the core behavior an
     *   **`Update`:** Applies physics (gravity, velocity, friction), updates player position, and synchronizes the camera.
     *   **`Animate` (overridden in `CAirplanePlayer`):** Rotates specific animated parts of the airplane model (e.g., rotors) and then calls the base `CPlayer::Animate` for general player animation.
 3.  **Input Handling (`Move`, `Rotate`):** Player movement and rotation are directly controlled by input, affecting its position and orientation vectors.
-4.  **Camera Switching (`ChangeCamera`):** Allows dynamic switching between different camera perspectives, adjusting player physics and camera parameters accordingly.
+4.  **Camera Switching (`ChangeCamera`):):** Allows dynamic switching between different camera perspectives, adjusting player physics and camera parameters accordingly.
 5.  **Rendering (`Render`):** Draws the player's 3D model to the screen, typically when viewed from a third-person perspective.
 
 ## CCamera Analysis
@@ -239,7 +239,7 @@ These classes are fundamental for defining the geometric structure of 3D objects
     *   **`CHeightMapGridMesh`:** Its constructor takes a `CHeightMapImage` as context, calculates vertex positions (using `OnGetHeight`), colors (using `OnGetColor`), and texture coordinates, then creates GPU buffers for these components and an `index buffer` for `TRIANGLESTRIP` rendering.
 2.  **Data Transfer:** `CreateBufferResource` (a helper function, likely defined elsewhere) is used to transfer vertex/index data from CPU memory to GPU default heaps, often using intermediate upload heaps.
 3.  **Rendering:** The `Render` method of each mesh type binds its specific vertex and/or index buffers to the graphics pipeline and issues a draw call.
-4.  **Resource Cleanup:** Destructors release GPU resources, and `ReleaseUploadBuffers` frees temporary upload heaps.
+4.  **Resource Cleanup:** Destructors release GPU resources, and `ReleaseUploadBuffers` frees temporary GPU resources.
 
 ## CShader Analysis
 The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`, `CObjectsShader`, `CPlayerShader`, `CTerrainShader`) are central to the rendering pipeline, managing shader programs and Pipeline State Objects (PSOs). They encapsulate the logic for compiling shaders, configuring rendering states, and binding resources to the GPU.
@@ -303,3 +303,6 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
 - **Intro Scene Button Object Visibility Fix (Root Parameter Index Unification):** Finalized the fix for invisible UI buttons. All `CScene::CreateShaderResourceView` calls within `CIntroScene::BuildObjects()` for the background image, play button (default/hover), and exit button (default/hover) now use a unified `nRootParameterStartIndex` of `3`. This ensures all UI textures are bound to Root Parameter 3, which maps to the `gtxtAlbedoTexture` (t6) register in the `PSStandard` shader. Combined with the `MATERIAL_ALBEDO_MAP` flag set on their respective `CMaterial`s, this resolves the texture binding and shader sampling mismatch, allowing UI elements to render correctly.
 - **nullptr Access Violation Fix in CIntroScene::BuildObjects():** Resolved a critical `nullptr` read access violation occurring in `CIntroScene::BuildObjects()` when attempting to call `LoadTextureFromDDSFile` on uninitialized `CTexture*` member variables (e.g., `m_pPlayButtonDefaultTexture`). The fix involved adding explicit `new CTexture(...)` allocations for `m_pPlayButtonDefaultTexture`, `m_pPlayButtonHoverTexture`, `m_pExitButtonDefaultTexture`, and `m_pExitButtonHoverTexture` immediately before their respective `LoadTextureFromDDSFile` calls. This ensures that these texture pointers correctly point to valid `CTexture` objects, preventing the `nullptr` dereference.
 - **Intro Scene to Game Scene Transition Re-enabled:** Modified `CGameFramework::OnCreate()` to revert the initial scene loading from `BuildGameScene()` back to `BuildIntroScene()`. The `m_bGameStarted = true;` line was also removed from `OnCreate()`. This change re-establishes the intro scene as the application's starting point. The existing logic in `CGameFramework::OnProcessingKeyboardMessage()` and `CIntroScene::OnProcessingKeyboardMessage()` (which returns `true` on `VK_RETURN` key press) will now correctly trigger the transition from the intro scene to the game scene.
+- **UI Object Visibility Test (Diffuse Color & Z-position):** To diagnose why UI objects were not rendering, `CIntroScene::BuildObjects()` was modified:
+    - Explicit diffuse colors were set for the materials of the background image (red), play button (green), and exit button (blue). This ensures that if the objects are rendered, they will appear as solid colors, bypassing any texture-related issues.
+    - The Z-position of the play and exit buttons was adjusted from `-5.0f` to `-0.1f` to prevent potential camera clipping issues and ensure they are rendered in front of the background.

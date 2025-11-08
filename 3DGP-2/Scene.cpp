@@ -547,6 +547,7 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pIntroMaterial->SetTexture(pIntroTexture);
 	pIntroMaterial->SetShader(pIntroShader);
 	pIntroMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
+	pIntroMaterial->m_cDiffuse = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // 배경 이미지를 빨간색으로 설정
 	m_pIntroImage->SetMaterial(0, pIntroMaterial);
 
 	// 버튼 텍스처 로드
@@ -575,7 +576,7 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	float fButtonHeight = 50.0f; // 버튼 세로 크기
 	float fButtonYOffset = -100.0f; // 화면 중앙에서 Y축으로 떨어진 거리
 	m_pPlayButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pPlayButton->SetPosition(0.0f, fButtonYOffset, -5.0f);
+	m_pPlayButton->SetPosition(0.0f, fButtonYOffset, -0.1f);
 
 	CIntroUIShader* pPlayButtonShader = new CIntroUIShader();
 	pPlayButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
@@ -583,13 +584,14 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pPlayButtonMaterial->SetTexture(m_pPlayButtonDefaultTexture);
 	pPlayButtonMaterial->SetShader(pPlayButtonShader);
 	pPlayButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
+	pPlayButtonMaterial->m_cDiffuse = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f); // 플레이 버튼을 초록색으로 설정
 	m_pPlayButton->SetMaterial(0, pPlayButtonMaterial);
 
 	// 나가기 버튼 생성 및 설정
 	m_pExitButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	float fExitButtonYOffset = fButtonYOffset - fButtonHeight - 20.0f; // 시작 버튼 아래에 배치
 	m_pExitButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pExitButton->SetPosition(0.0f, fExitButtonYOffset, -5.0f);
+	m_pExitButton->SetPosition(0.0f, fExitButtonYOffset, -0.1f);
 
 	CIntroUIShader* pExitButtonShader = new CIntroUIShader();
 	pExitButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
@@ -597,6 +599,7 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
 	pExitButtonMaterial->SetShader(pExitButtonShader);
 	pExitButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
+	pExitButtonMaterial->m_cDiffuse = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); // 나가기 버튼을 파란색으로 설정
 	m_pExitButton->SetMaterial(0, pExitButtonMaterial);
 	// CreateShaderVariables(pd3dDevice, pd3dCommandList); // IntroScene에서는 불필요
 }

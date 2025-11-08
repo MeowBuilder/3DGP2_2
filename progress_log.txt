@@ -31,3 +31,8 @@
 2025년 11월 8일 토요일: 앱 시작 시 기본 씬을 게임 씬에서 인트로 씬으로 변경하고, 인트로 씬에서 Enter 키를 눌러 게임 씬으로 전환하는 기능 재활성화.
     - CGameFramework::OnCreate() 함수 내에서 BuildGameScene() 호출을 BuildIntroScene()으로 변경하고, m_bGameStarted = true; 라인을 제거함.
     - CGameFramework::OnProcessingKeyboardMessage() 및 CIntroScene::OnProcessingKeyboardMessage()의 기존 로직을 통해 Enter 키 입력 시 씬 전환이 이루어지도록 함.
+2025년 11월 8일 토요일: UI 오브젝트 렌더링 테스트를 위해 CIntroScene::BuildObjects()에서 UI 오브젝트들의 확산 색상 및 Z 위치를 조정함.
+    - 배경 이미지 재질의 확산 색상을 빨간색(XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f))으로 설정.
+    - 플레이 버튼 재질의 확산 색상을 초록색(XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f))으로 설정.
+    - 나가기 버튼 재질의 확산 색상을 파란색(XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f))으로 설정.
+    - 플레이 버튼과 나가기 버튼의 Z 위치를 -0.1f로 조정하여 카메라 클리핑 문제 방지.
