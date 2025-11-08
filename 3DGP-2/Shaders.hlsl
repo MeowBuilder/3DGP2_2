@@ -103,8 +103,7 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 		cColor = lerp(cColor, cIllumination, 0.5f);
 	}
 
-	// 텍스처 샘플링 로직을 무시하고 재질의 확산 색상으로 렌더링
-	return(gMaterial.m_cDiffuse);
+	return(cColor);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,4 +236,28 @@ float4 PSTerrain(VS_TERRAIN_OUTPUT input) : SV_TARGET
 	//	float4 cColor = saturate(lerp(cBaseTexColor, cDetailTexColor, fAlpha));
 
 	return(cColor);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// UI SHADERS
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Texture2D gtxtUITexture : register(t0);
+
+// VS_SPRITE_TEXTURED_INPUT and VS_SPRITE_TEXTURED_OUTPUT are already defined and are suitable for UI.
+
+VS_SPRITE_TEXTURED_OUTPUT VS_UI(VS_SPRITE_TEXTURED_INPUT input)
+{
+	VS_SPRITE_TEXTURED_OUTPUT output;
+
+    // For UI, we assume the input position is already in NDC.
+    // The C++ code will provide an identity matrix for the world matrix.
+	output.position = float4(input.position, 1.0f);
+	output.uv = input.uv;
+
+	return(output);
+}
+
+float4 PS_UI(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
+{
+	return gtxtUITexture.Sample(gssWrap, input.uv);
 }

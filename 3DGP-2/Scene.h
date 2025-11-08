@@ -64,36 +64,45 @@ public:
 	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUSrvDescriptorStartHandle() { return(m_d3dSrvGPUDescriptorStartHandle); }
 };
 
+class CGameFramework;
+
 class CScene
 {
 public:
-    CScene();
+    CScene(CGameFramework *pGameFramework);
     ~CScene();
 
-	virtual bool OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
-	virtual bool OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
+	bool OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
+	bool OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
 
 	virtual void CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void ReleaseShaderVariables();
 
-	virtual void BuildDefaultLightsAndMaterials();
-	virtual void BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
-	virtual void ReleaseObjects();
+	void BuildDefaultLightsAndMaterials();
+	void BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
+	void ReleaseObjects();
 
-	virtual ID3D12RootSignature *CreateGraphicsRootSignature(ID3D12Device *pd3dDevice);
-	virtual ID3D12RootSignature *GetGraphicsRootSignature() { return(m_pd3dGraphicsRootSignature); }
+	ID3D12RootSignature *CreateGraphicsRootSignature(ID3D12Device *pd3dDevice);
+	ID3D12RootSignature *GetGraphicsRootSignature() { return(m_pd3dGraphicsRootSignature); }
 
-	virtual bool ProcessInput(UCHAR *pKeysBuffer);
-    virtual void AnimateObjects(float fTimeElapsed);
-	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
+	bool ProcessInput(UCHAR *pKeysBuffer);
+    void AnimateObjects(float fTimeElapsed);
+    void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
 
-	virtual void ReleaseUploadBuffers();
+	void ReleaseUploadBuffers();
 
 	CPlayer								*m_pPlayer = NULL;
 
-public:
-	ID3D12RootSignature					*m_pd3dGraphicsRootSignature = NULL;
+protected:
+	CGameFramework						*m_pGameFramework = NULL;
+
+		CGameObject*					m_pMainMenuObject = NULL;
+
+	
+
+	protected:
+	ID3D12RootSignature*					m_pd3dGraphicsRootSignature = NULL;
 
 	int									m_nGameObjects = 0;
 	CGameObject							**m_ppGameObjects = NULL;
@@ -131,30 +140,4 @@ public:
 	static D3D12_GPU_DESCRIPTOR_HANDLE GetGPUCbvDescriptorNextHandle() { return(m_pDescriptorHeap->m_d3dCbvGPUDescriptorNextHandle); }
 	static D3D12_CPU_DESCRIPTOR_HANDLE GetCPUSrvDescriptorStartHandle() { return(m_pDescriptorHeap->m_d3dSrvCPUDescriptorStartHandle); }
 	static D3D12_GPU_DESCRIPTOR_HANDLE GetGPUSrvDescriptorStartHandle() { return(m_pDescriptorHeap->m_d3dSrvGPUDescriptorStartHandle); }
-};
-
-class CIntroScene : public CScene
-{
-public:
-	CIntroScene();
-	virtual ~CIntroScene();
-
-	virtual void BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
-	virtual void AnimateObjects(float fTimeElapsed) override;
-	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
-	virtual void ReleaseObjects();
-
-	virtual bool OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
-	virtual bool OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
-
-protected:
-	CTexturedRectObject* m_pIntroImage = NULL;
-	CTexturedRectObject* m_pPlayButton = NULL; // 시작 버튼
-	CTexturedRectObject* m_pExitButton = NULL; // 나가기 버튼
-
-	CTexture* m_pPlayButtonDefaultTexture = NULL;
-	CTexture* m_pPlayButtonHoverTexture = NULL;
-	CTexture* m_pExitButtonDefaultTexture = NULL;
-	CTexture* m_pExitButtonHoverTexture = NULL;
-
 };

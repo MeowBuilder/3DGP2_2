@@ -4,6 +4,12 @@
 #include "Player.h"
 #include "Scene.h"
 
+enum class GameState
+{
+	MainMenu,
+	InGame
+};
+
 class CGameFramework
 {
 public:
@@ -24,8 +30,7 @@ public:
 
 	void ChangeSwapChainState();
 
-    void BuildIntroScene(); // Added for intro scene
-    void BuildGameScene(); // Renamed from BuildObjects
+    void BuildObjects();
     void ReleaseObjects();
 
     void ProcessInput();
@@ -34,6 +39,12 @@ public:
 
 	void WaitForGpuComplete();
 	void MoveToNextFrame();
+
+	GameState GetGameState() { return m_GameState; }
+	void SetGameState(GameState gameState) { m_GameState = gameState; }
+	CPlayer* GetPlayer() { return m_pPlayer; }
+public:
+	CCamera* GetCamera() { return m_pCamera; }
 
 	void OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
 	void OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam);
@@ -76,15 +87,15 @@ private:
 
 	CGameTimer					m_GameTimer;
 
+	GameState					m_GameState = GameState::MainMenu;
+
 	CScene						*m_pScene = NULL;
-	CPlayer						*m_pPlayer = NULL;
-	CCamera						*m_pCamera = NULL;
+		CPlayer							*m_pPlayer = NULL;
+		CCamera							*m_pCamera = NULL;
+	
 
 	POINT						m_ptOldCursorPos;
 
 	_TCHAR						m_pszFrameRate[70];
-
-	bool						m_bGameStarted = false; // Added for scene transition
 };
-
 

@@ -96,6 +96,9 @@ public:
 	D3D12_VIEWPORT GetViewport() { return(m_d3dViewport); }
 	D3D12_RECT GetScissorRect() { return(m_d3dScissorRect); }
 
+	void SetViewMatrix(const XMFLOAT4X4& xmf4x4View) { m_xmf4x4View = xmf4x4View; }
+	void SetProjectionMatrix(const XMFLOAT4X4& xmf4x4Projection) { m_xmf4x4Projection = xmf4x4Projection; }
+
 	virtual void Move(const XMFLOAT3& xmf3Shift) { m_xmf3Position.x += xmf3Shift.x; m_xmf3Position.y += xmf3Shift.y; m_xmf3Position.z += xmf3Shift.z; }
 	virtual void Rotate(float fPitch = 0.0f, float fYaw = 0.0f, float fRoll = 0.0f) { }
 	virtual void Update(XMFLOAT3& xmf3LookAt, float fTimeElapsed) { }

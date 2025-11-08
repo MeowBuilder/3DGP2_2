@@ -4,6 +4,9 @@
 
 #include "stdafx.h"
 #include "Scene.h"
+#include "GameFramework.h"
+#include "ScreenQuadMesh.h"
+#include "UIShader.h"
 
 CDescriptorHeap* CScene::m_pDescriptorHeap = NULL;
 
@@ -130,8 +133,9 @@ void CScene::CreateShaderResourceView(ID3D12Device* pd3dDevice, CTexture* pTextu
 	}
 }
 
-CScene::CScene()
+CScene::CScene(CGameFramework* pGameFramework)
 {
+	m_pGameFramework = pGameFramework;
 }
 
 CScene::~CScene()
@@ -191,13 +195,21 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
-	CObjectsShader* pObjectsShader = new CObjectsShader();
-	int nObjects = pObjectsShader->GetNumberOfObjects();
-
+	// 디스크립터 힙 생성 시 메뉴 텍스처를 위한 SRV 1개 추가
 	m_pDescriptorHeap = new CDescriptorHeap();
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 17 + 50 + 1 + 1 + 3); //SuperCobra(17), Gunship(2), Player(1), Skybox(1), Terrain(3)
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 500); //SuperCobra(17), Gunship(2), Player(1), Skybox(1), Terrain(3), MainMenu(1)
 
 	BuildDefaultLightsAndMaterials();
+
+	// 셰이더 배열 크기를 2로 늘림 (오브젝트 셰이더 + UI 텍스처 셰이더)
+	m_nShaders = 2;
+	m_ppShaders = new CShader*[m_nShaders];
+
+	CObjectsShader* pObjectsShader = new CObjectsShader();
+	pObjectsShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
+	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
+	m_ppShaders[0] = pObjectsShader;
 
 	m_pSkyBox = new CSkyBox(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 
@@ -205,21 +217,39 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
 	m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
 
-	m_nShaders = 1;
-	m_ppShaders = new CShader*[m_nShaders];
+	// UI 렌더링을 위한 CUIShader 생성
+	CUIShader* pUIShader = new CUIShader();
+	pUIShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
+	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
+	m_ppShaders[1] = pUIShader;
 
-	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
+	m_pMainMenuObject = new CGameObject(1, 1);
 
-	m_ppShaders[0] = pObjectsShader;
+	CScreenQuadMesh* pScreenQuadMesh = new CScreenQuadMesh(pd3dDevice, pd3dCommandList);
+	m_pMainMenuObject->SetMesh(0, pScreenQuadMesh);
+
+	// 1 Texture, 2D Resource, 0 Samplers (Static Sampler 사용), 1 Root Parameter
+	CTexture* pMainMenuTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	pMainMenuTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"SkyBox/SkyBox_0.dds", RESOURCE_TEXTURE2D, 0);
+	// 텍스처를 위한 SRV를 생성합니다. (중요)
+	CScene::CreateShaderResourceView(pd3dDevice, pMainMenuTexture, 0);
+	pMainMenuTexture->SetRootParameterIndex(0, 0); // CUIShader의 루트 시그니처에서 텍스처는 0번 파라미터임
+
+	CMaterial* pMainMenuMaterial = new CMaterial();
+	pMainMenuMaterial->SetTexture(pMainMenuTexture);
+	pMainMenuMaterial->SetShader(pUIShader);
+
+	m_pMainMenuObject->SetMaterial(0, pMainMenuMaterial);
+
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
 void CScene::ReleaseObjects()
 {
+	if (m_pMainMenuObject) m_pMainMenuObject->Release();
+
 	if (m_pd3dGraphicsRootSignature) m_pd3dGraphicsRootSignature->Release();
-	if (m_pDescriptorHeap) delete m_pDescriptorHeap;
 
 	ReleaseShaderVariables();
 
@@ -227,9 +257,12 @@ void CScene::ReleaseObjects()
 	{
 		for (int i = 0; i < m_nShaders; i++)
 		{
-			m_ppShaders[i]->ReleaseShaderVariables();
-			m_ppShaders[i]->ReleaseObjects();
-			m_ppShaders[i]->Release();
+			if (m_ppShaders[i])
+			{
+				m_ppShaders[i]->ReleaseShaderVariables();
+				m_ppShaders[i]->ReleaseObjects();
+				m_ppShaders[i]->Release();
+			}
 		}
 		delete[] m_ppShaders;
 	}
@@ -244,6 +277,9 @@ void CScene::ReleaseObjects()
 	}
 
 	if (m_pLights) delete[] m_pLights;
+
+	// 디스크립터 힙은 관련된 모든 오브젝트가 해제된 후 마지막에 해제합니다.
+	if (m_pDescriptorHeap) delete m_pDescriptorHeap;
 }
 
 ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevice)
@@ -464,6 +500,13 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 	case WM_KEYDOWN:
 		switch (wParam)
 		{
+			/*
+		case 'W': m_ppGameObjects[0]->MoveForward(+1.0f); break;
+		case 'S': m_ppGameObjects[0]->MoveForward(-1.0f); break;
+		case 'A': m_ppGameObjects[0]->MoveStrafe(-1.0f); break;
+		case 'D': m_ppGameObjects[0]->MoveStrafe(+1.0f); break;
+		case 'Q': m_ppGameObjects[0]->MoveUp(+1.0f); break;
+		case 'R': m_ppGameObjects[0]->MoveUp(-1.0f); break;*/
 		default:
 			break;
 		}
@@ -495,256 +538,46 @@ void CScene::AnimateObjects(float fTimeElapsed)
 
 void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
-	if (m_pd3dGraphicsRootSignature) pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
-	pd3dCommandList->SetDescriptorHeaps(1, &m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap);
-
-	pCamera->SetViewportsAndScissorRects(pd3dCommandList);
-	pCamera->UpdateShaderVariables(pd3dCommandList);
-
-	UpdateShaderVariables(pd3dCommandList);
-
-	D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
-	pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
-
-	if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
-	if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
-
-	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Render(pd3dCommandList, pCamera);
-	for (int i = 0; i < m_nShaders; i++) if (m_ppShaders[i]) m_ppShaders[i]->Render(pd3dCommandList, pCamera);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CIntroScene
-CIntroScene::CIntroScene()
-{
-}
-
-CIntroScene::~CIntroScene()
-{
-}
-
-void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
-{
-	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
-
-	m_pDescriptorHeap = new CDescriptorHeap();
-	// 버튼 텍스처 4개 + 헬리콥터 텍스처 (예: 17개) = 총 21개의 텍스처 SRV를 위한 공간
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 4 + 17); 
-
-	// 버튼 텍스처 로드
-	m_pPlayButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pPlayButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Default.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
-
-	m_pPlayButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pPlayButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pPlayButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Hover.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
-
-	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Default.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
-
-	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pExitButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Hover.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
-
-	BuildDefaultLightsAndMaterials(); // 라이트 및 재질 초기화
-	CreateShaderVariables(pd3dDevice, pd3dCommandList); // 셰이더 변수 생성
-
-	// 시작 버튼 생성 및 설정
-	m_pPlayButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	float fButtonWidth = 200.0f; // 버튼 가로 크기
-	float fButtonHeight = 50.0f; // 버튼 세로 크기
-	float fButtonYOffset = -100.0f; // 화면 중앙에서 Y축으로 떨어진 거리
-	m_pPlayButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pPlayButton->SetPosition(0.0f, fButtonYOffset, -0.1f);
-
-	CIntroUIShader* pPlayButtonShader = new CIntroUIShader();
-	pPlayButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	CMaterial* pPlayButtonMaterial = new CMaterial();
-	pPlayButtonMaterial->SetTexture(m_pPlayButtonDefaultTexture);
-	pPlayButtonMaterial->SetShader(pPlayButtonShader);
-	pPlayButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
-	m_pPlayButton->SetMaterial(0, pPlayButtonMaterial);
-
-	// 나가기 버튼 생성 및 설정
-	m_pExitButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	float fExitButtonYOffset = fButtonYOffset - fButtonHeight - 20.0f; // 시작 버튼 아래에 배치
-	m_pExitButton->SetScale(fButtonWidth, fButtonHeight, 1.0f);
-	m_pExitButton->SetPosition(0.0f, fExitButtonYOffset, -0.1f);
-
-	CIntroUIShader* pExitButtonShader = new CIntroUIShader();
-	pExitButtonShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	CMaterial* pExitButtonMaterial = new CMaterial();
-	pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
-	pExitButtonMaterial->SetShader(pExitButtonShader);
-	pExitButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
-	m_pExitButton->SetMaterial(0, pExitButtonMaterial);
-	CreateShaderVariables(pd3dDevice, pd3dCommandList); // IntroScene에서는 불필요
-}
-
-void CIntroScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
-{
-	if (m_pd3dGraphicsRootSignature) pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
-	pd3dCommandList->SetDescriptorHeaps(1, &m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap);
-
-	pCamera->SetViewportsAndScissorRects(pd3dCommandList);
-	pCamera->UpdateShaderVariables(pd3dCommandList);
-
-	// No lights or other scene objects for intro screen
-	UpdateShaderVariables(pd3dCommandList);
-	D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
-	pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
-
-	// 배경 이미지는 렌더링하지 않음
-	if (m_pPlayButton) m_pPlayButton->Render(pd3dCommandList, pCamera);
-	if (m_pExitButton) m_pExitButton->Render(pd3dCommandList, pCamera);
-	if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera); // 플레이어 렌더링
-}
-
-void CIntroScene::AnimateObjects(float fTimeElapsed)
-{
-    if (m_pPlayer) m_pPlayer->Animate(fTimeElapsed, NULL);
-    // No need to call CScene::AnimateObjects(fTimeElapsed) as it references m_pPlayer.
-}
-
-void CIntroScene::ReleaseObjects()
-{
-	// 배경 이미지는 릴리즈하지 않음
-	if (m_pPlayButton) m_pPlayButton->Release();
-	if (m_pExitButton) m_pExitButton->Release();
-	if (m_pPlayer) m_pPlayer->Release(); // 플레이어 릴리즈
-
-	// 이 텍스처들은 CMaterial에 SetTexture()될 때 AddRef()되었고,
-	// m_pPlayButton, m_pExitButton의 CMaterial이 파괴될 때 Release()될 것이므로,
-	// 여기서 직접 Release()하면 이중 해제가 발생할 수 있다.
-	// if (m_pPlayButtonDefaultTexture) m_pPlayButtonDefaultTexture->Release();
-	// if (m_pPlayButtonHoverTexture) m_pPlayButtonHoverTexture->Release();
-	// if (m_pExitButtonDefaultTexture) m_pExitButtonHoverTexture->Release();
-	// if (m_pExitButtonHoverTexture) m_pExitButtonHoverTexture->Release();
-
-	ReleaseShaderVariables(); // 셰이더 변수 해제
-	//CScene::ReleaseObjects(); // Call base class release
-}
-
-bool CIntroScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
-{
-	// 마우스 커서의 클라이언트 영역 좌표를 가져옵니다.
-	POINT ptCursor;
-	::GetCursorPos(&ptCursor);
-	::ScreenToClient(hWnd, &ptCursor);
-
-	// 버튼의 화면 공간 경계를 계산합니다.
-	// CTexturedRectObject는 화면 중앙 (0,0,0)을 기준으로 스케일링되므로,
-	// 실제 화면 좌표로 변환해야 합니다.
-	float fHalfWidth = FRAME_BUFFER_WIDTH / 2.0f;
-	float fHalfHeight = FRAME_BUFFER_HEIGHT / 2.0f;
-
-	// Play Button
-	float fPlayButtonWidth = 200.0f;
-	float fPlayButtonHeight = 50.0f;
-	float fPlayButtonX = 0.0f; // 중앙
-	float fPlayButtonY = -100.0f; // BuildObjects에서 설정한 Y 오프셋
-
-	RECT rcPlayButton;
-	rcPlayButton.left = (LONG)(fHalfWidth + fPlayButtonX - fPlayButtonWidth / 2.0f);
-	rcPlayButton.right = (LONG)(fHalfWidth + fPlayButtonX + fPlayButtonWidth / 2.0f);
-	rcPlayButton.top = (LONG)(fHalfHeight - fPlayButtonY - fPlayButtonHeight / 2.0f); // Y축 반전
-	rcPlayButton.bottom = (LONG)(fHalfHeight - fPlayButtonY + fPlayButtonHeight / 2.0f);
-
-	// Exit Button
-	float fExitButtonWidth = 200.0f;
-	float fExitButtonHeight = 50.0f;
-	float fExitButtonX = 0.0f; // 중앙
-	float fExitButtonY = -100.0f - 50.0f - 20.0f; // BuildObjects에서 설정한 Y 오프셋
-
-	RECT rcExitButton;
-	rcExitButton.left = (LONG)(fHalfWidth + fExitButtonX - fExitButtonWidth / 2.0f);
-	rcExitButton.right = (LONG)(fHalfWidth + fExitButtonX + fExitButtonWidth / 2.0f);
-	rcExitButton.top = (LONG)(fHalfHeight - fExitButtonY - fExitButtonHeight / 2.0f); // Y축 반전
-	rcExitButton.bottom = (LONG)(fHalfHeight - fExitButtonY + fExitButtonHeight / 2.0f);
-
-	bool bPlayButtonHover = ::PtInRect(&rcPlayButton, ptCursor);
-	bool bExitButtonHover = ::PtInRect(&rcExitButton, ptCursor);
-
-	// 마우스 오버 상태에 따라 텍스처 변경
-	if (m_pPlayButton)
+	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
 	{
-		CMaterial* pPlayButtonMaterial = m_pPlayButton->GetMaterial(0);
-		if (pPlayButtonMaterial)
+		// 메인 메뉴 렌더링 전, 뷰포트와 씨저렉트를 설정합니다.
+		if (m_pGameFramework->GetCamera()) m_pGameFramework->GetCamera()->SetViewportsAndScissorRects(pd3dCommandList);
+
+		if (m_pMainMenuObject && m_ppShaders[1])
 		{
-			if (bPlayButtonHover)
-			{
-				pPlayButtonMaterial->SetTexture(m_pPlayButtonHoverTexture);
-			}
-			else
-			{
-				pPlayButtonMaterial->SetTexture(m_pPlayButtonDefaultTexture);
-			}
+			// UI 렌더링을 위해 UI 전용 루트 시그니처를 설정합니다.
+			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
+			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
+			// UI 렌더링에 필요한 디스크립터 힙을 설정합니다.
+			ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
+			pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+			m_pMainMenuObject->Render(pd3dCommandList, NULL);
 		}
 	}
-
-	if (m_pExitButton)
+	else
 	{
-		CMaterial* pExitButtonMaterial = m_pExitButton->GetMaterial(0);
-		if (pExitButtonMaterial)
-		{
-			if (bExitButtonHover)
-			{
-				pExitButtonMaterial->SetTexture(m_pExitButtonHoverTexture);
-			}
-			else
-			{
-				pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
-			}
-		}
-	}
+		// 3D InGame 렌더링을 위해 메인 루트 시그니처를 설정합니다.
+		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
+		// 3D 씬 렌더링에 필요한 디스크립터 힙을 설정합니다.
+		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
+		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-	switch (nMessageID)
-	{
-		case WM_LBUTTONDOWN:
-			if (bPlayButtonHover)
-			{
-				// "시작" 버튼 클릭: 게임 씬으로 전환
-				return true;
-			}
-			else if (bExitButtonHover)
-			{
-				// "나가기" 버튼 클릭: 애플리케이션 종료
-				::PostQuitMessage(0);
-				return true;
-			}
-			break;
-		default:
-			break;
-	}
-	return false;
-}
+		pCamera->SetViewportsAndScissorRects(pd3dCommandList);
+		pCamera->UpdateShaderVariables(pd3dCommandList);
 
-bool CIntroScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
-{
-	// Handle keyboard input for intro screen, e.g., Enter to start game, ESC to exit
-	switch (nMessageID)
-	{
-		case WM_KEYDOWN:
-			switch (wParam)
-			{
-				case VK_RETURN:
-					// Signal to GameFramework to switch to game scene
-					return true; // Indicate that the message was handled
-				case VK_ESCAPE:
-					::PostQuitMessage(0);
-					return true; // Indicate that the message was handled
-				default:
-					break;
-			}
-			break;
-		default:
-			break;
+		UpdateShaderVariables(pd3dCommandList);
+
+		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
+		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
+
+		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
+		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
+
+		for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Render(pd3dCommandList, pCamera);
+		
+		// 3D 오브젝트 셰이더만 렌더링합니다.
+		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 	}
-	return false;
 }
 

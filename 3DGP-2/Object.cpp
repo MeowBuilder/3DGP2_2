@@ -42,16 +42,8 @@ CTexture::~CTexture()
 {
 	if (m_ppd3dTextures)
 	{
-		for (int i = 0; i < m_nTextures; i++)
-		{
-			if (m_ppd3dTextures[i])
-			{
-				m_ppd3dTextures[i]->Release();
-				m_ppd3dTextures[i] = NULL; // Release 후 NULL로 설정
-			}
-		}
+		for (int i = 0; i < m_nTextures; i++) if (m_ppd3dTextures[i]) m_ppd3dTextures[i]->Release();
 		delete[] m_ppd3dTextures;
-		m_ppd3dTextures = NULL; // 배열 포인터도 NULL로 설정
 	}
 
 	if (m_ppstrTextureNames) delete[] m_ppstrTextureNames;
@@ -83,16 +75,20 @@ void CTexture::SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuD
 
 void CTexture::UpdateShaderVariables(ID3D12GraphicsCommandList* pd3dCommandList)
 {
-	if (m_nRootParameters == m_nTextures)
+	// 두 배열 중 하나라도 할당되지 않았으면 아무 작업도 수행하지 않습니다.
+	if (!m_pd3dSrvGpuDescriptorHandles || !m_pnRootParameterIndices) return;
+
+	// 두 배열 크기 중 더 작은 값을 기준으로 루프를 실행하여 배열 범위 초과 접근을 방지합니다.
+	int nLoopCount = min(m_nTextures, m_nRootParameters);
+	for (int i = 0; i < nLoopCount; i++)
 	{
-		for (int i = 0; i < m_nRootParameters; i++)
+		UINT nRootParameterIndex = m_pnRootParameterIndices[i];
+		// 핸들 포인터가 유효하고, 루트 파라미터 인덱스가 설정되었으며, 유효한 범위 내에 있는지 확인합니다.
+		if (m_pd3dSrvGpuDescriptorHandles[i].ptr && (nRootParameterIndex != -1) && (nRootParameterIndex < 16))
 		{
-			if (m_pd3dSrvGpuDescriptorHandles[i].ptr && (m_pnRootParameterIndices[i] != -1)) pd3dCommandList->SetGraphicsRootDescriptorTable(m_pnRootParameterIndices[i], m_pd3dSrvGpuDescriptorHandles[i]);
+			
+			pd3dCommandList->SetGraphicsRootDescriptorTable(nRootParameterIndex, m_pd3dSrvGpuDescriptorHandles[i]);
 		}
-	}
-	else
-	{
-		if (m_pd3dSrvGpuDescriptorHandles[0].ptr) pd3dCommandList->SetGraphicsRootDescriptorTable(m_pnRootParameterIndices[0], m_pd3dSrvGpuDescriptorHandles[0]);
 	}
 }
 
@@ -109,16 +105,9 @@ void CTexture::ReleaseUploadBuffers()
 {
 	if (m_ppd3dTextureUploadBuffers)
 	{
-		for (int i = 0; i < m_nTextures; i++)
-		{
-			if (m_ppd3dTextureUploadBuffers[i])
-			{
-				m_ppd3dTextureUploadBuffers[i]->Release();
-				m_ppd3dTextureUploadBuffers[i] = NULL; // Release 후 NULL로 설정
-			}
-		}
+		for (int i = 0; i < m_nTextures; i++) if (m_ppd3dTextureUploadBuffers[i]) m_ppd3dTextureUploadBuffers[i]->Release();
 		delete[] m_ppd3dTextureUploadBuffers;
-		m_ppd3dTextureUploadBuffers = NULL; // 배열 포인터도 NULL로 설정
+		m_ppd3dTextureUploadBuffers = NULL;
 	}
 }
 
@@ -428,7 +417,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 {
 	OnPrepareRender();
 
-	UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
+	if (pCamera) UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
 
 	if (m_nMaterials > 1)
 	{
@@ -1028,27 +1017,5 @@ CHeightMapTerrain::CHeightMapTerrain(ID3D12Device* pd3dDevice, ID3D12GraphicsCom
 CHeightMapTerrain::~CHeightMapTerrain(void)
 {
 	if (m_pHeightMapImage) delete m_pHeightMapImage;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-CTexturedRectObject::CTexturedRectObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature) : CGameObject(1, 1)
-{
-	CTexturedRectMesh *pTexturedRectMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, float(FRAME_BUFFER_WIDTH), float(FRAME_BUFFER_HEIGHT), 0.0f, 0.0f, 0.0f, 0.0f);
-	SetMesh(0, pTexturedRectMesh);
-
-	CStandardShader *pStandardShader = new CStandardShader();
-	pStandardShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-
-	CMaterial *pMaterial = new CMaterial();
-	pMaterial->SetShader(pStandardShader);
-
-	SetMaterial(0, pMaterial);
-
-	UpdateTransform(NULL);
-}
-
-CTexturedRectObject::~CTexturedRectObject()
-{
 }
 

@@ -54,8 +54,7 @@ bool CGameFramework::OnCreate(HINSTANCE hInstance, HWND hMainWnd)
 
 	CoInitialize(NULL);
 
-	BuildIntroScene(); // 다시 BuildIntroScene 호출
-	// m_bGameStarted = true; // 이 라인 제거
+	BuildObjects();
 
 	return(true);
 }
@@ -287,90 +286,55 @@ void CGameFramework::ChangeSwapChainState()
 
 void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	if (m_pScene)
+	if (m_pScene) m_pScene->OnProcessingMouseMessage(hWnd, nMessageID, wParam, lParam);
+	switch (nMessageID)
 	{
-		if (m_pScene->OnProcessingMouseMessage(hWnd, nMessageID, wParam, lParam))
-		{
-			// Scene requested transition to game scene
-			if (!m_bGameStarted)
-			{
-				ReleaseObjects(); // Release intro scene objects
-				BuildGameScene(); // Build game scene
-				m_bGameStarted = true;
-			}
-			return;
-		}
-	}
-	
-	// Original mouse processing for game scene
-	if (m_bGameStarted)
-	{
-		switch (nMessageID)
-		{
-			case WM_LBUTTONDOWN:
-			case WM_RBUTTONDOWN:
-				::SetCapture(hWnd);
-				::GetCursorPos(&m_ptOldCursorPos);
-				break;
-			case WM_LBUTTONUP:
-			case WM_RBUTTONUP:
-				::ReleaseCapture();
-				break;
-			case WM_MOUSEMOVE:
-				break;
-			default:
-				break;
-		}
+		case WM_LBUTTONDOWN:
+		case WM_RBUTTONDOWN:
+			::SetCapture(hWnd);
+			::GetCursorPos(&m_ptOldCursorPos);
+			break;
+		case WM_LBUTTONUP:
+		case WM_RBUTTONUP:
+			::ReleaseCapture();
+			break;
+		case WM_MOUSEMOVE:
+			break;
+		default:
+			break;
 	}
 }
 
 void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	if (m_pScene)
+	if (m_pScene) m_pScene->OnProcessingKeyboardMessage(hWnd, nMessageID, wParam, lParam);
+	switch (nMessageID)
 	{
-		if (m_pScene->OnProcessingKeyboardMessage(hWnd, nMessageID, wParam, lParam))
-		{
-			// Scene requested transition to game scene
-			if (!m_bGameStarted)
+		case WM_KEYUP:
+			switch (wParam)
 			{
-				ReleaseObjects(); // Release intro scene objects
-				BuildGameScene(); // Build game scene
-				m_bGameStarted = true;
+				case VK_ESCAPE:
+					::PostQuitMessage(0);
+					break;
+				case VK_RETURN:
+					if (m_GameState == GameState::MainMenu) SetGameState(GameState::InGame);
+					break;
+				case VK_F1:
+				case VK_F2:
+				case VK_F3:
+					m_pCamera = m_pPlayer->ChangeCamera((DWORD)(wParam - VK_F1 + 1), m_GameTimer.GetTimeElapsed());
+					break;
+				case VK_F9:
+					ChangeSwapChainState();
+					break;
+				case VK_F5:
+					break;
+				default:
+					break;
 			}
-			return;
-		}
-	}
-
-	// Original keyboard processing for game scene
-	if (m_bGameStarted)
-	{
-		switch (nMessageID)
-		{
-			case WM_KEYUP:
-				switch (wParam)
-				{
-					case VK_ESCAPE:
-						::PostQuitMessage(0);
-						break;
-					case VK_RETURN:
-						break;
-					case VK_F1:
-					case VK_F2:
-					case VK_F3:
-						m_pCamera = m_pPlayer->ChangeCamera((DWORD)(wParam - VK_F1 + 1), m_GameTimer.GetTimeElapsed());
-						break;
-					case VK_F9:
-						ChangeSwapChainState();
-						break;
-					case VK_F5:
-						break;
-					default:
-						break;
-				}
-				break;
-			default:
-				break;
-		}
+			break;
+		default:
+			break;
 	}
 }
 
@@ -434,42 +398,14 @@ void CGameFramework::OnDestroy()
 #endif
 }
 
-void CGameFramework::BuildIntroScene()
-{
-	m_pd3dCommandList->Reset(m_pd3dCommandAllocator, NULL);
-
-	m_pScene = new CIntroScene();
-	if (m_pScene) m_pScene->BuildObjects(m_pd3dDevice, m_pd3dCommandList);
-
-	m_pCamera = new CCamera();
-	m_pCamera->GenerateProjectionMatrix(1.01f, 5000.0f, ASPECT_RATIO, 60.0f);
-	m_pCamera->SetViewport(0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT, 0.0f, 1.0f);
-	m_pCamera->SetScissorRect(0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT);
-	m_pCamera->CreateShaderVariables(m_pd3dDevice, m_pd3dCommandList); // 추가된 부분
-
-	m_pd3dCommandList->Close();
-	ID3D12CommandList *ppd3dCommandLists[] = { m_pd3dCommandList };
-	m_pd3dCommandQueue->ExecuteCommandLists(1, ppd3dCommandLists);
-
-	WaitForGpuComplete();
-
-	if (m_pScene) m_pScene->ReleaseUploadBuffers();
-	
-	m_GameTimer.Reset();
-}
-
-void CGameFramework::BuildGameScene() // Renamed from BuildObjects
+void CGameFramework::BuildObjects()
 {
 	float a = XMConvertToDegrees(atan(0.5));
 
+
 	m_pd3dCommandList->Reset(m_pd3dCommandAllocator, NULL);
 
-	// Release previous scene if any
-	if (m_pScene) m_pScene->ReleaseObjects();
-	if (m_pScene) delete m_pScene;
-	m_pScene = NULL;
-
-	m_pScene = new CScene();
+	m_pScene = new CScene(this);
 	if (m_pScene) m_pScene->BuildObjects(m_pd3dDevice, m_pd3dCommandList);
 
 	CAirplanePlayer *pAirplanePlayer = new CAirplanePlayer(m_pd3dDevice, m_pd3dCommandList, m_pScene->GetGraphicsRootSignature());
@@ -492,64 +428,65 @@ void CGameFramework::BuildGameScene() // Renamed from BuildObjects
 void CGameFramework::ReleaseObjects()
 {
 	if (m_pPlayer) m_pPlayer->Release();
-	m_pPlayer = NULL;
 
 	if (m_pScene) m_pScene->ReleaseObjects();
 	if (m_pScene) delete m_pScene;
-	m_pScene = NULL;
-
-	// if (m_pCamera) delete m_pCamera; // 이 라인을 제거
-	m_pCamera = NULL;
 }
 
 void CGameFramework::ProcessInput()
 {
-	static UCHAR pKeysBuffer[256];
-	bool bProcessedByScene = false;
-	if (GetKeyboardState(pKeysBuffer) && m_pScene) bProcessedByScene = m_pScene->ProcessInput(pKeysBuffer);
-	if (!bProcessedByScene)
+	if (m_GameState == GameState::InGame)
 	{
-		DWORD dwDirection = 0;
-		if (pKeysBuffer[VK_UP] & 0xF0) dwDirection |= DIR_FORWARD;
-		if (pKeysBuffer[VK_DOWN] & 0xF0) dwDirection |= DIR_BACKWARD;
-		if (pKeysBuffer[VK_LEFT] & 0xF0) dwDirection |= DIR_LEFT;
-		if (pKeysBuffer[VK_RIGHT] & 0xF0) dwDirection |= DIR_RIGHT;
-		if (pKeysBuffer[VK_PRIOR] & 0xF0) dwDirection |= DIR_UP;
-		if (pKeysBuffer[VK_NEXT] & 0xF0) dwDirection |= DIR_DOWN;
-
-		float cxDelta = 0.0f, cyDelta = 0.0f;
-		POINT ptCursorPos;
-		if (GetCapture() == m_hWnd)
+		static UCHAR pKeysBuffer[256];
+		bool bProcessedByScene = false;
+		if (GetKeyboardState(pKeysBuffer) && m_pScene) bProcessedByScene = m_pScene->ProcessInput(pKeysBuffer);
+		if (!bProcessedByScene)
 		{
-			SetCursor(NULL);
-			GetCursorPos(&ptCursorPos);
-			cxDelta = (float)(ptCursorPos.x - m_ptOldCursorPos.x) / 3.0f;
-			cyDelta = (float)(ptCursorPos.y - m_ptOldCursorPos.y) / 3.0f;
-			SetCursorPos(m_ptOldCursorPos.x, m_ptOldCursorPos.y);
-		}
+			DWORD dwDirection = 0;
+			if (pKeysBuffer[VK_UP] & 0xF0) dwDirection |= DIR_FORWARD;
+			if (pKeysBuffer[VK_DOWN] & 0xF0) dwDirection |= DIR_BACKWARD;
+			if (pKeysBuffer[VK_LEFT] & 0xF0) dwDirection |= DIR_LEFT;
+			if (pKeysBuffer[VK_RIGHT] & 0xF0) dwDirection |= DIR_RIGHT;
+			if (pKeysBuffer[VK_PRIOR] & 0xF0) dwDirection |= DIR_UP;
+			if (pKeysBuffer[VK_NEXT] & 0xF0) dwDirection |= DIR_DOWN;
 
-		if ((dwDirection != 0) || (cxDelta != 0.0f) || (cyDelta != 0.0f))
-		{
-			if (cxDelta || cyDelta)
+			float cxDelta = 0.0f, cyDelta = 0.0f;
+			POINT ptCursorPos;
+			if (GetCapture() == m_hWnd)
 			{
-				if (pKeysBuffer[VK_RBUTTON] & 0xF0)
-					m_pPlayer->Rotate(cyDelta, 0.0f, -cxDelta);
-				else
-					m_pPlayer->Rotate(cyDelta, cxDelta, 0.0f);
+				SetCursor(NULL);
+				GetCursorPos(&ptCursorPos);
+				cxDelta = (float)(ptCursorPos.x - m_ptOldCursorPos.x) / 3.0f;
+				cyDelta = (float)(ptCursorPos.y - m_ptOldCursorPos.y) / 3.0f;
+				SetCursorPos(m_ptOldCursorPos.x, m_ptOldCursorPos.y);
 			}
-			if (dwDirection) m_pPlayer->Move(dwDirection, 1.25f, true);
+
+			if ((dwDirection != 0) || (cxDelta != 0.0f) || (cyDelta != 0.0f))
+			{
+				if (cxDelta || cyDelta)
+				{
+					if (pKeysBuffer[VK_RBUTTON] & 0xF0)
+						m_pPlayer->Rotate(cyDelta, 0.0f, -cxDelta);
+					else
+						m_pPlayer->Rotate(cyDelta, cxDelta, 0.0f);
+				}
+				if (dwDirection) m_pPlayer->Move(dwDirection, 1.25f, true);
+			}
 		}
+		m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
 	}
-	if(m_pPlayer) m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
 }
 
 void CGameFramework::AnimateObjects()
 {
-	float fTimeElapsed = m_GameTimer.GetTimeElapsed();
+	if (m_GameState == GameState::InGame)
+	{
+		float fTimeElapsed = m_GameTimer.GetTimeElapsed();
 
-	if (m_pScene) m_pScene->AnimateObjects(fTimeElapsed);
+		if (m_pScene) m_pScene->AnimateObjects(fTimeElapsed);
 
-	if (m_bGameStarted && m_pPlayer) m_pPlayer->Animate(fTimeElapsed, NULL);
+		m_pPlayer->Animate(fTimeElapsed, NULL);
+	}
 }
 
 void CGameFramework::WaitForGpuComplete()
@@ -582,7 +519,7 @@ void CGameFramework::MoveToNextFrame()
 //#define _WITH_PLAYER_TOP
 
 void CGameFramework::FrameAdvance()
-{
+{    
 	m_GameTimer.Tick(0.0f);
 	
 	ProcessInput();
@@ -613,12 +550,19 @@ void CGameFramework::FrameAdvance()
 
 	m_pd3dCommandList->OMSetRenderTargets(1, &d3dRtvCPUDescriptorHandle, TRUE, &d3dDsvCPUDescriptorHandle);
 
-	if (m_pScene) m_pScene->Render(m_pd3dCommandList, m_pCamera);
+	if (m_GameState == GameState::InGame)
+	{
+		if (m_pScene) m_pScene->Render(m_pd3dCommandList, m_pCamera);
 
 #ifdef _WITH_PLAYER_TOP
-	m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
+		m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 #endif
-	if (m_bGameStarted && m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
+		if (m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
+	}
+	else
+	{
+		if (m_pScene) m_pScene->Render(m_pd3dCommandList, NULL);
+	}
 
 	d3dResourceBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	d3dResourceBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
@@ -652,15 +596,8 @@ void CGameFramework::FrameAdvance()
 
 	m_GameTimer.GetFrameRate(m_pszFrameRate + 12, 37);
 	size_t nLength = _tcslen(m_pszFrameRate);
-
-	if (m_bGameStarted && m_pPlayer)
-	{
-		XMFLOAT3 xmf3Position = m_pPlayer->GetPosition();
-		_stprintf_s(m_pszFrameRate + nLength, 70 - nLength, _T("(%4f, %4f, %4f)"), xmf3Position.x, xmf3Position.y, xmf3Position.z);
-	}
-	else // 메뉴 씬일 경우 (m_bGameStarted == false)
-	{
-		_stprintf_s(m_pszFrameRate + nLength, 70 - nLength, _T("")); // 플레이어 위치 정보는 비워둠
-	}
+	XMFLOAT3 xmf3Position = m_pPlayer->GetPosition();
+	_stprintf_s(m_pszFrameRate + nLength, 70 - nLength, _T("(%4f, %4f, %4f)"), xmf3Position.x, xmf3Position.y, xmf3Position.z);
 	::SetWindowText(m_hWnd, m_pszFrameRate);
 }
+
