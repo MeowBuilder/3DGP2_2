@@ -51,3 +51,8 @@
     - CIntroScene::Render()에서 주석 처리되었던 UpdateShaderVariables() 및 SetGraphicsRootConstantBufferView() 호출을 다시 활성화하여 라이트 관련 셰이더 변수가 업데이트되도록 함.
     - CIntroScene::BuildObjects()에 BuildDefaultLightsAndMaterials() 및 CreateShaderVariables() 호출을 추가하여 CScene의 라이트 관련 멤버 변수들을 초기화하고 GPU에 상수 버퍼를 생성하도록 함.
     - CIntroScene::ReleaseObjects()에 ReleaseShaderVariables() 호출을 추가하여 라이트 관련 리소스를 해제하도록 함.
+2025년 11월 8일 토요일: CIntroScene의 헬리콥터 오브젝트를 CAirplanePlayer로 대체.
+    - CIntroScene::BuildObjects()에서 기존 m_pHelicopter 생성 코드를 m_pPlayer (CAirplanePlayer) 생성 코드로 대체하고 초기 위치 및 크기 설정.
+    - CIntroScene::AnimateObjects()에서 m_pPlayer->Animate() 호출 추가.
+    - CIntroScene::Render()에서 m_pHelicopter->Render() 호출을 m_pPlayer->Render() 호출로 대체.
+    - CIntroScene::ReleaseObjects()에서 m_pHelicopter->Release() 호출을 m_pPlayer->Release() 호출로 대체.

@@ -112,9 +112,9 @@ The `CPlayer` class, inheriting from `CGameObject`, defines the core behavior an
 2.  **Game Loop (`Update`, `Animate`):**
     *   **`Update`:** Applies physics (gravity, velocity, friction), updates player position, and synchronizes the camera.
     *   **`Animate` (overridden in `CAirplanePlayer`):** Rotates specific animated parts of the airplane model (e.g., rotors) and then calls the base `CPlayer::Animate` for general player animation.
-3.  **Input Handling (`Move`, `Rotate`):** Player movement and rotation are directly controlled by input, affecting its position and orientation vectors.
-4.  **Camera Switching (`ChangeCamera`):):** Allows dynamic switching between different camera perspectives, adjusting player physics and camera parameters accordingly.
-5.  **Rendering (`Render`):** Draws the player's 3D model to the screen, typically when viewed from a third-person perspective.
+    *   **Input Handling (`Move`, `Rotate`):** Player movement and rotation are directly controlled by input, affecting its position and orientation vectors.
+    *   **Camera Switching (`ChangeCamera`):):** Allows dynamic switching between different camera perspectives, adjusting player physics and camera parameters accordingly.
+    *   **Rendering (`Render`):** Draws the player's 3D model to the screen, typically when viewed from a third-person perspective.
 
 ## CCamera Analysis
 The `CCamera` class and its derived classes (`CSpaceShipCamera`, `CFirstPersonCamera`, `CThirdPersonCamera`) provide a robust system for managing the viewpoint in a 3D application. They handle the creation of view and projection matrices, viewport and scissor rectangle settings, and interaction with the player object.
@@ -317,3 +317,8 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
         - Re-enabled `UpdateShaderVariables()` and `SetGraphicsRootConstantBufferView()` calls in `CIntroScene::Render()`.
         - Added `BuildDefaultLightsAndMaterials()` and `CreateShaderVariables()` calls to `CIntroScene::BuildObjects()` to ensure proper light setup and constant buffer creation.
         - Added `ReleaseShaderVariables()` call to `CIntroScene::ReleaseObjects()` for correct resource cleanup.
+- **CAirplanePlayer Integration into Intro Scene:** Replaced the generic `CMi24Object` with `CAirplanePlayer` in `CIntroScene` to further test 3D object rendering and player-specific functionalities.
+    - Modified `CIntroScene::BuildObjects()` to create `m_pPlayer` as a `CAirplanePlayer` instance, setting its initial position and scale.
+    - Updated `CIntroScene::AnimateObjects()` to call `m_pPlayer->Animate()` for player animation.
+    - Changed `CIntroScene::Render()` to render `m_pPlayer` instead of `m_pHelicopter`.
+    - Modified `CIntroScene::ReleaseObjects()` to release `m_pPlayer` instead of `m_pHelicopter`.

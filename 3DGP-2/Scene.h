@@ -157,5 +157,4 @@ protected:
 	CTexture* m_pExitButtonDefaultTexture = NULL;
 	CTexture* m_pExitButtonHoverTexture = NULL;
 
-	CMi24Object* m_pHelicopter = NULL; // 헬리콥터 오브젝트 추가
 };
