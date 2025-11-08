@@ -1,0 +1,40 @@
+# Visual Studio
+.vs/
+*.VC.db
+*.opensdf
+*.opendb
+*.idb
+*.opt
+*.ncb
+*.suo
+*.user
+*.ipch
+*.filters
+*.vcxproj.user
+*.vcxproj
+*.sln
+
+# Build artifacts
+Debug/
+Release/
+x64/
+*.obj
+*.exe
+*.ilk
+*.pdb
+*.lib
+*.exp
+*.aps
+*.bsc
+*.sbr
+*.pch
+*.res
+*.tlog
+*.lastbuildstate
+*.log
+*.sdf
+*.tmp
+*~
+
+# Custom files
+*.bin
