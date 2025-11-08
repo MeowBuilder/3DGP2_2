@@ -54,7 +54,8 @@ bool CGameFramework::OnCreate(HINSTANCE hInstance, HWND hMainWnd)
 
 	CoInitialize(NULL);
 
-	BuildIntroScene();
+	BuildIntroScene(); // 다시 BuildIntroScene 호출
+	// m_bGameStarted = true; // 이 라인 제거
 
 	return(true);
 }
