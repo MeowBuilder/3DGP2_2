@@ -36,3 +36,8 @@
     - 플레이 버튼 재질의 확산 색상을 초록색(XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f))으로 설정.
     - 나가기 버튼 재질의 확산 색상을 파란색(XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f))으로 설정.
     - 플레이 버튼과 나가기 버튼의 Z 위치를 -0.1f로 조정하여 카메라 클리핑 문제 방지.
+2025년 11월 8일 토요일: CIntroScene에서 배경 이미지 관련 코드 완전히 제거.
+    - CIntroScene::BuildObjects()에서 m_pIntroImage 객체 생성 및 관련 텍스처, 셰이더, 재질 설정 코드 제거.
+    - CreateCbvSrvDescriptorHeaps 호출 시 텍스처 SRV 공간을 5개에서 4개로 변경.
+    - CIntroScene::Render()에서 m_pIntroImage->Render() 호출 제거.
+    - CIntroScene::ReleaseObjects()에서 m_pIntroImage->Release() 호출 제거.

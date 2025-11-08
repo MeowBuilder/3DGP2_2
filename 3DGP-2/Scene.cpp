@@ -527,28 +527,9 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
-	// 배경 이미지
 	m_pDescriptorHeap = new CDescriptorHeap();
-	// 배경 1개 + 버튼 텍스처 4개 = 총 5개의 텍스처 SRV를 위한 공간
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 5); 
-
-	m_pIntroImage = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	m_pIntroImage->SetPosition(0.0f, 0.0f, 0.0f); // 화면 중앙
-	m_pIntroImage->SetScale(float(FRAME_BUFFER_WIDTH), float(FRAME_BUFFER_HEIGHT), 1.0f); // 전체 화면
-
-	CTexture* pIntroTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	pIntroTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Background.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, pIntroTexture, 0, 3); // Root parameter 3
-	
-	CIntroUIShader* pIntroShader = new CIntroUIShader();
-	pIntroShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-
-	CMaterial* pIntroMaterial = new CMaterial();
-	pIntroMaterial->SetTexture(pIntroTexture);
-	pIntroMaterial->SetShader(pIntroShader);
-	pIntroMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
-	pIntroMaterial->m_cDiffuse = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // 배경 이미지를 빨간색으로 설정
-	m_pIntroImage->SetMaterial(0, pIntroMaterial);
+	// 버튼 텍스처 4개 = 총 4개의 텍스처 SRV를 위한 공간
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 4); 
 
 	// 버튼 텍스처 로드
 	m_pPlayButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -584,7 +565,6 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pPlayButtonMaterial->SetTexture(m_pPlayButtonDefaultTexture);
 	pPlayButtonMaterial->SetShader(pPlayButtonShader);
 	pPlayButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
-	pPlayButtonMaterial->m_cDiffuse = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f); // 플레이 버튼을 초록색으로 설정
 	m_pPlayButton->SetMaterial(0, pPlayButtonMaterial);
 
 	// 나가기 버튼 생성 및 설정
@@ -599,7 +579,6 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
 	pExitButtonMaterial->SetShader(pExitButtonShader);
 	pExitButtonMaterial->SetMaterialType(MATERIAL_ALBEDO_MAP); // 추가
-	pExitButtonMaterial->m_cDiffuse = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); // 나가기 버튼을 파란색으로 설정
 	m_pExitButton->SetMaterial(0, pExitButtonMaterial);
 	// CreateShaderVariables(pd3dDevice, pd3dCommandList); // IntroScene에서는 불필요
 }
@@ -617,7 +596,7 @@ void CIntroScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pC
 	// D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 	// pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
 
-	if (m_pIntroImage) m_pIntroImage->Render(pd3dCommandList, pCamera);
+	// 배경 이미지는 렌더링하지 않음
 	if (m_pPlayButton) m_pPlayButton->Render(pd3dCommandList, pCamera);
 	if (m_pExitButton) m_pExitButton->Render(pd3dCommandList, pCamera);
 }
@@ -630,7 +609,7 @@ void CIntroScene::AnimateObjects(float fTimeElapsed)
 
 void CIntroScene::ReleaseObjects()
 {
-	if (m_pIntroImage) m_pIntroImage->Release();
+	// 배경 이미지는 릴리즈하지 않음
 	if (m_pPlayButton) m_pPlayButton->Release();
 	if (m_pExitButton) m_pExitButton->Release();
 

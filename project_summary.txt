@@ -146,7 +146,7 @@ The `CCamera` class and its derived classes (`CSpaceShipCamera`, `CFirstPersonCa
 4.  **Mode-Specific Behavior (`Rotate`, `Update` in derived classes):**
     *   **`CSpaceShipCamera::Rotate`:** Rotates the camera's orientation and position around the player's local axes.
     *   **`CFirstPersonCamera::Rotate`:** Handles rotations for a first-person perspective, often clamping pitch and aligning with world up.
-    *   **`CThirdPersonCamera::Update`:** Smoothly interpolates the camera's position to follow the player at an offset, always looking at the player.
+    *   **`CThirdPersonCamera::Update`:** Smoothly interpolates the camera's position to follow the player at an offset, always looking at the target.
 5.  **Rendering Setup (`SetViewportsAndScissorRects`):**
     *   Applies the camera's viewport and scissor rectangle settings to the command list before rendering.
 
