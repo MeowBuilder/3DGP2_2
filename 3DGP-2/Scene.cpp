@@ -528,8 +528,13 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
 	m_pDescriptorHeap = new CDescriptorHeap();
-	// 버튼 텍스처 4개 = 총 4개의 텍스처 SRV를 위한 공간
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 4); 
+	// 버튼 텍스처 4개 + 헬리콥터 텍스처 (예: 17개) = 총 21개의 텍스처 SRV를 위한 공간
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 4 + 17); 
+
+	// 헬리콥터 오브젝트 생성 및 설정
+	m_pHelicopter = new CMi24Object(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+	m_pHelicopter->SetPosition(0.0f, 0.0f, 10.0f); // 화면 중앙, 약간 뒤로
+	m_pHelicopter->SetScale(0.1f, 0.1f, 0.1f); // 크기 조정
 
 	// 버튼 텍스처 로드
 	m_pPlayButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -599,6 +604,7 @@ void CIntroScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pC
 	// 배경 이미지는 렌더링하지 않음
 	if (m_pPlayButton) m_pPlayButton->Render(pd3dCommandList, pCamera);
 	if (m_pExitButton) m_pExitButton->Render(pd3dCommandList, pCamera);
+	if (m_pHelicopter) m_pHelicopter->Render(pd3dCommandList, pCamera); // 헬리콥터 렌더링
 }
 
 void CIntroScene::AnimateObjects(float fTimeElapsed)
@@ -612,6 +618,7 @@ void CIntroScene::ReleaseObjects()
 	// 배경 이미지는 릴리즈하지 않음
 	if (m_pPlayButton) m_pPlayButton->Release();
 	if (m_pExitButton) m_pExitButton->Release();
+	if (m_pHelicopter) m_pHelicopter->Release(); // 헬리콥터 릴리즈
 
 	// 이 텍스처들은 CMaterial에 SetTexture()될 때 AddRef()되었고,
 	// m_pPlayButton, m_pExitButton의 CMaterial이 파괴될 때 Release()될 것이므로,

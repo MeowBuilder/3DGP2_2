@@ -41,3 +41,9 @@
     - CreateCbvSrvDescriptorHeaps 호출 시 텍스처 SRV 공간을 5개에서 4개로 변경.
     - CIntroScene::Render()에서 m_pIntroImage->Render() 호출 제거.
     - CIntroScene::ReleaseObjects()에서 m_pIntroImage->Release() 호출 제거.
+2025년 11월 8일 토요일: CIntroScene에 헬리콥터 오브젝트 추가 및 렌더링 테스트.
+    - Scene.h의 CIntroScene 클래스에 CMi24Object* m_pHelicopter 멤버 변수 추가.
+    - CIntroScene::BuildObjects()에서 CreateCbvSrvDescriptorHeaps 호출 시 텍스처 SRV 공간을 4개에서 21개(헬리콥터 텍스처 17개 포함)로 확장.
+    - CIntroScene::BuildObjects()에서 CMi24Object 헬리콥터를 생성하고 초기 위치(0.0f, 0.0f, 10.0f)와 크기(0.1f, 0.1f, 0.1f) 설정.
+    - CIntroScene::Render()에서 m_pHelicopter->Render() 호출 추가.
+    - CIntroScene::ReleaseObjects()에서 m_pHelicopter->Release() 호출 추가.

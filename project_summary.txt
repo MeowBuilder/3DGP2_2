@@ -145,7 +145,7 @@ The `CCamera` class and its derived classes (`CSpaceShipCamera`, `CFirstPersonCa
     *   Binds the constant buffer to the graphics pipeline.
 4.  **Mode-Specific Behavior (`Rotate`, `Update` in derived classes):**
     *   **`CSpaceShipCamera::Rotate`:** Rotates the camera's orientation and position around the player's local axes.
-    *   **`CFirstPersonCamera::Rotate`:** Handles rotations for a first-person perspective, often clamping pitch and aligning with world up.
+    *   **`CFirstPersonCamera`:** Handles rotations for a first-person perspective, often clamping pitch and aligning with world up.
     *   **`CThirdPersonCamera::Update`:** Smoothly interpolates the camera's position to follow the player at an offset, always looking at the target.
 5.  **Rendering Setup (`SetViewportsAndScissorRects`):**
     *   Applies the camera's viewport and scissor rectangle settings to the command list before rendering.
@@ -264,7 +264,7 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
 ### Workflow Summary:
 1.  **Shader Creation (`CreateShader`):**
     *   Derived classes override `CreateVertexShader`, `CreatePixelShader`, `CreateInputLayout`, and other state creation methods to define their specific rendering pipeline.
-    *   The base `CShader::CreateShader` method then uses these definitions to construct a `D3D12_GRAPHICS_PIPELINE_STATE_DESC` and create an `ID3D12PipelineState` object.
+    *   The base `CShader` method then uses these definitions to construct a `D3D12_GRAPHICS_PIPELINE_STATE_DESC` and create an `ID3D12PipelineState` object.
 2.  **Rendering (`Render`):**
     *   The `Render` method (or `OnPrepareRender`) sets the appropriate `ID3D12PipelineState` on the command list.
     *   Shader variables (e.g., world matrix, material properties, camera info, light info) are updated and bound to the GPU.
@@ -306,3 +306,9 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
 - **UI Object Visibility Test (Diffuse Color & Z-position):** To diagnose why UI objects were not rendering, `CIntroScene::BuildObjects()` was modified:
     - Explicit diffuse colors were set for the materials of the background image (red), play button (green), and exit button (blue). This ensures that if the objects are rendered, they will appear as solid colors, bypassing any texture-related issues.
     - The Z-position of the play and exit buttons was adjusted from `-5.0f` to `-0.1f` to prevent potential camera clipping issues and ensure they are rendered in front of the background.
+- **Helicopter Object for Rendering Test:** To further diagnose UI rendering issues, a `CMi24Object` (helicopter) was added to `CIntroScene` for rendering testing.
+    - Added `CMi24Object* m_pHelicopter;` member variable to `CIntroScene` in `Scene.h`.
+    - In `CIntroScene::BuildObjects()`, the `CreateCbvSrvDescriptorHeaps()` call was updated to allocate enough SRV space for the helicopter's textures (increased from 4 to 21).
+    - A `CMi24Object` was created, positioned at (0.0f, 0.0f, 10.0f), and scaled to (0.1f, 0.1f, 0.1f) within `CIntroScene::BuildObjects()`.
+    - `m_pHelicopter->Render()` was added to `CIntroScene::Render()` to draw the helicopter.
+    - `m_pHelicopter->Release()` was added to `CIntroScene::ReleaseObjects()` for proper resource cleanup.
