@@ -47,3 +47,7 @@
     - CIntroScene::BuildObjects()에서 CMi24Object 헬리콥터를 생성하고 초기 위치(0.0f, 0.0f, 10.0f)와 크기(0.1f, 0.1f, 0.1f) 설정.
     - CIntroScene::Render()에서 m_pHelicopter->Render() 호출 추가.
     - CIntroScene::ReleaseObjects()에서 m_pHelicopter->Release() 호출 추가.
+2025년 11월 8일 토요일: CIntroScene 렌더링 파이프라인 점검 및 라이트 관련 초기화 추가.
+    - CIntroScene::Render()에서 주석 처리되었던 UpdateShaderVariables() 및 SetGraphicsRootConstantBufferView() 호출을 다시 활성화하여 라이트 관련 셰이더 변수가 업데이트되도록 함.
+    - CIntroScene::BuildObjects()에 BuildDefaultLightsAndMaterials() 및 CreateShaderVariables() 호출을 추가하여 CScene의 라이트 관련 멤버 변수들을 초기화하고 GPU에 상수 버퍼를 생성하도록 함.
+    - CIntroScene::ReleaseObjects()에 ReleaseShaderVariables() 호출을 추가하여 라이트 관련 리소스를 해제하도록 함.

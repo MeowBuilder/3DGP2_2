@@ -556,6 +556,9 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	m_pExitButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Hover.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
 
+	BuildDefaultLightsAndMaterials(); // 라이트 및 재질 초기화
+	CreateShaderVariables(pd3dDevice, pd3dCommandList); // 셰이더 변수 생성
+
 	// 시작 버튼 생성 및 설정
 	m_pPlayButton = new CTexturedRectObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	float fButtonWidth = 200.0f; // 버튼 가로 크기
@@ -597,9 +600,9 @@ void CIntroScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pC
 	pCamera->UpdateShaderVariables(pd3dCommandList);
 
 	// No lights or other scene objects for intro screen
-	// UpdateShaderVariables(pd3dCommandList);
-	// D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
-	// pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
+	UpdateShaderVariables(pd3dCommandList);
+	D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
+	pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
 
 	// 배경 이미지는 렌더링하지 않음
 	if (m_pPlayButton) m_pPlayButton->Render(pd3dCommandList, pCamera);
@@ -628,6 +631,7 @@ void CIntroScene::ReleaseObjects()
 	// if (m_pExitButtonDefaultTexture) m_pExitButtonHoverTexture->Release();
 	// if (m_pExitButtonHoverTexture) m_pExitButtonHoverTexture->Release();
 
+	ReleaseShaderVariables(); // 셰이더 변수 해제
 	//CScene::ReleaseObjects(); // Call base class release
 }
 

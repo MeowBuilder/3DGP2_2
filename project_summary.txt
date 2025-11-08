@@ -312,3 +312,8 @@ The `CShader` class and its derived classes (`CSkyBoxShader`, `CStandardShader`,
     - A `CMi24Object` was created, positioned at (0.0f, 0.0f, 10.0f), and scaled to (0.1f, 0.1f, 0.1f) within `CIntroScene::BuildObjects()`.
     - `m_pHelicopter->Render()` was added to `CIntroScene::Render()` to draw the helicopter.
     - `m_pHelicopter->Release()` was added to `CIntroScene::ReleaseObjects()` for proper resource cleanup.
+- **Rendering Pipeline Re-evaluation for Intro Scene:** Following the user's feedback that neither UI elements nor the test helicopter object were visible, a comprehensive re-evaluation of the `CIntroScene` rendering pipeline was initiated.
+    - **Light and Shader Variable Initialization:** Identified that `CIntroScene` was not properly initializing light sources and associated shader variables, which are crucial for 3D object rendering.
+        - Re-enabled `UpdateShaderVariables()` and `SetGraphicsRootConstantBufferView()` calls in `CIntroScene::Render()`.
+        - Added `BuildDefaultLightsAndMaterials()` and `CreateShaderVariables()` calls to `CIntroScene::BuildObjects()` to ensure proper light setup and constant buffer creation.
+        - Added `ReleaseShaderVariables()` call to `CIntroScene::ReleaseObjects()` for correct resource cleanup.
