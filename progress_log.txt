@@ -25,3 +25,6 @@
     - CIntroScene::BuildObjects()에서 배경 이미지, 플레이 버튼, 나가기 버튼의 CMaterial에 MATERIAL_ALBEDO_MAP 플래그를 설정하여 셰이더가 텍스처를 올바르게 샘플링하도록 수정함.
 2025년 11월 8일 토요일: 시작 화면 버튼 오브젝트 미표시 문제 해결 (최종).
     - CIntroScene::BuildObjects()에서 배경 이미지, 플레이 버튼 Default/Hover, 나가기 버튼 Default/Hover 텍스처의 CScene::CreateShaderResourceView 호출 시 nRootParameterStartIndex를 모두 3으로 통일함. 이로써 모든 UI 텍스처가 PSStandard 셰이더의 gtxtAlbedoTexture (t6)에 올바르게 바인딩되어 텍스처 바인딩과 셰이더 샘플링 간의 불일치 문제를 해결함.
+2025년 11월 8일 토요일: CIntroScene::BuildObjects()에서 nullptr 읽기 액세스 위반 예외 해결.
+    - m_pPlayButtonDefaultTexture, m_pPlayButtonHoverTexture, m_pExitButtonDefaultTexture, m_pExitButtonHoverTexture 변수들이 new CTexture(...)를 통해 객체가 할당되지 않은 상태에서 LoadTextureFromDDSFile 함수를 호출하여 발생한 예외를 수정함.
+    - 각 LoadTextureFromDDSFile 호출 전에 해당 CTexture 객체를 new CTexture(...)로 할당하는 코드를 추가하여 nullptr 참조 문제를 해결함.

@@ -556,17 +556,21 @@ void CIntroScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	m_pIntroImage->SetMaterial(0, pIntroMaterial);
 
 	// 버튼 텍스처 로드
+	m_pPlayButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pPlayButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Default.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
 
+	m_pPlayButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pPlayButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pPlayButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Play_Hover.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pPlayButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
 
 	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Default.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0, 3); // Root parameter 3으로 변경
 
+	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pExitButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI Image/Home_Hover.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0, 3); // Root parameter 3으로 변경
