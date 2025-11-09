@@ -1,11 +1,16 @@
-# 진행 상황 로그 (Progress Log)
 
 ## 2025년 11월 9일
-- **작업:** 시작 화면 기능 통합 및 구조 변경
-- **세부 내용:**
-    1. '참고용' 폴더의 `GameFramework`, `Scene` 관련 최신 소스 코드를 `3DGP-2` 프로젝트에 복사 및 덮어쓰기 완료.
-    2. UI 렌더링에 필요한 신규 파일(`UIShader.cpp/h`, `ScreenQuadMesh.cpp/h`)을 프로젝트에 추가.
-    3. Visual Studio 프로젝트 파일(`.vcxproj`)을 수정하여 신규 파일들이 컴파일되도록 설정.
-    4. `GameState` (MainMenu, InGame)를 기반으로 렌더링 로직이 분기되는 것을 코드 분석을 통해 확인.
-    5. 작업 내용을 `backup/start-screen` 브랜치에 커밋하여 백업 완료.
-- **상태:** 완료
+
+### 기능 변경: 배경 렌더링 SkyBox에서 ScreenQuadMesh로 전환
+
+- **문제점:**
+    - 사용자가 `SkyBox` 대신 이전 `ScreenQuadMesh`를 이용한 배경 렌더링을 요청.
+- **해결:**
+    - `Scene.h`: `CSkyBox* m_pSkyBox` 멤버 변수를 `CGameObject* m_pBackgroundObject`로 교체.
+    - `Scene.cpp`:
+        - `CScene::BuildObjects`: `m_pSkyBox` 생성 코드를 제거하고, `CScreenQuadMesh`를 사용하여 `m_pBackgroundObject`를 생성. `UI/Background.dds` 텍스처를 로드하여 `m_pBackgroundObject`에 할당.
+        - `CScene::ReleaseObjects`: `m_pSkyBox` 해제 코드를 제거하고, `m_pBackgroundObject`를 해제.
+        - `CScene::Render`: `MainMenu` 상태에서 `m_pSkyBox` 렌더링 코드를 제거하고, `m_pBackgroundObject`를 UI 버튼보다 먼저 렌더링하도록 수정.
+        - `CScene::ReleaseShaderVariables` 및 `CScene::ReleaseUploadBuffers`: `m_pSkyBox` 관련 호출을 제거.
+- **결과:**
+    - 메인 메뉴 배경이 `SkyBox` 대신 `ScreenQuadMesh`를 사용하여 렌더링됨.

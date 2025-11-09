@@ -94,6 +94,19 @@ public:
 
 	CPlayer								*m_pPlayer = NULL;
 
+	CGameObject* m_pStartButtonObject = NULL;
+	CGameObject* m_pExitButtonObject = NULL;
+
+	CGameObject* m_pHoveredObject = NULL; // New: To track currently hovered UI object
+	CTexture* m_pStartButtonDefaultTexture = NULL; // New: Default texture for start button
+	CTexture* m_pExitButtonDefaultTexture = NULL; // New: Default texture for exit button
+	CTexture* m_pStartButtonHoverTexture = NULL; // New: Hover texture for start button
+	CTexture* m_pExitButtonHoverTexture = NULL; // New: Hover texture for exit button
+
+	CGameObject* PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View);
+	void UpdateUIButtons(float fTimeElapsed); // New: Function to update UI button states
+
+
 protected:
 	CGameFramework						*m_pGameFramework = NULL;
 
@@ -110,7 +123,7 @@ protected:
 	int									m_nShaders = 0;
 	CShader								**m_ppShaders = NULL;
 
-	CSkyBox								*m_pSkyBox = NULL;
+	CGameObject*						m_pBackgroundObject = NULL; // Replaced CSkyBox
 	CHeightMapTerrain*					m_pTerrain = NULL;
 
 	LIGHT								*m_pLights = NULL;

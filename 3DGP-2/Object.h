@@ -131,6 +131,7 @@ public:
 	void SetShader(CShader *pShader);
 	void SetMaterialType(UINT nType) { m_nType |= nType; }
 	void SetTexture(CTexture* pTexture);
+	CTexture* GetTexture() { return m_pTexture; } // New getter
 
 	virtual void UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void ReleaseShaderVariables();
@@ -184,6 +185,7 @@ public:
 	CGameObject 					*m_pSibling = NULL;
 
 	virtual void SetMesh(int nIndex, CMesh* pMesh);
+	virtual CMesh* GetMesh(int nIndex) const { return m_ppMeshes[nIndex]; }
 	void SetShader(int nMaterial, CShader *pShader);
 	void SetMaterial(int nMaterial, CMaterial *pMaterial);
 	CMaterial* GetMaterial(int nIndex) { return m_ppMaterials[nIndex]; }
@@ -207,10 +209,11 @@ public:
 
 	virtual void ReleaseUploadBuffers();
 
-	XMFLOAT3 GetPosition();
-	XMFLOAT3 GetLook();
-	XMFLOAT3 GetUp();
-	XMFLOAT3 GetRight();
+	XMFLOAT3 GetPosition() const;
+	XMFLOAT3 GetLook() const;
+	XMFLOAT3 GetUp() const;
+	XMFLOAT3 GetRight() const;
+	XMFLOAT3 GetScale() const;
 
 	void SetPosition(float x, float y, float z);
 	void SetPosition(XMFLOAT3 xmf3Position);

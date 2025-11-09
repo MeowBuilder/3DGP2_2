@@ -290,15 +290,69 @@ void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM
 	switch (nMessageID)
 	{
 		case WM_LBUTTONDOWN:
+			if (m_GameState == GameState::MainMenu)
+			{
+				int x = LOWORD(lParam);
+				int y = HIWORD(lParam);
+				// Convert to NDC
+				float ndcX = (2.0f * x) / m_nWndClientWidth - 1.0f;
+				float ndcY = 1.0f - (2.0f * y) / m_nWndClientHeight;
+
+				XMFLOAT3 pickPos = { ndcX, ndcY, 0.0f };
+				CGameObject* pPickedObject = m_pScene->PickObjectByRayIntersection(pickPos, m_pCamera->GetViewMatrix());
+
+				if (pPickedObject == m_pScene->m_pStartButtonObject)
+				{
+					SetGameState(GameState::InGame);
+				}
+				else if (pPickedObject == m_pScene->m_pExitButtonObject)
+				{
+					::PostQuitMessage(0);
+				}
+			}
+			else if (m_GameState == GameState::InGame)
+			{
+				::SetCapture(hWnd);
+				::GetCursorPos(&m_ptOldCursorPos);
+			}
+			break;
 		case WM_RBUTTONDOWN:
-			::SetCapture(hWnd);
-			::GetCursorPos(&m_ptOldCursorPos);
+			if (m_GameState == GameState::InGame)
+			{
+				::SetCapture(hWnd);
+				::GetCursorPos(&m_ptOldCursorPos);
+			}
 			break;
 		case WM_LBUTTONUP:
 		case WM_RBUTTONUP:
 			::ReleaseCapture();
 			break;
 		case WM_MOUSEMOVE:
+			if (m_GameState == GameState::MainMenu)
+			{
+				int x = LOWORD(lParam);
+				int y = HIWORD(lParam);
+				// Convert to NDC
+				float ndcX = (2.0f * x) / m_nWndClientWidth - 1.0f;
+				float ndcY = 1.0f - (2.0f * y) / m_nWndClientHeight;
+
+				XMFLOAT3 pickPos = { ndcX, ndcY, 0.0f };
+				m_pScene->m_pHoveredObject = m_pScene->PickObjectByRayIntersection(pickPos, m_pCamera->GetViewMatrix());
+			}
+			else if (m_GameState == GameState::InGame)
+			{
+				if (GetCapture() == hWnd)
+				{
+					SetCursor(NULL);
+					POINT ptCursorPos;
+					GetCursorPos(&ptCursorPos);
+					float cxDelta = (float)(ptCursorPos.x - m_ptOldCursorPos.x) / 3.0f;
+					float cyDelta = (float)(ptCursorPos.y - m_ptOldCursorPos.y) / 3.0f;
+					SetCursorPos(m_ptOldCursorPos.x, m_ptOldCursorPos.y);
+
+					if (m_pPlayer) m_pPlayer->Rotate(cyDelta, cxDelta, 0.0f);
+				}
+			}
 			break;
 		default:
 			break;
@@ -479,14 +533,11 @@ void CGameFramework::ProcessInput()
 
 void CGameFramework::AnimateObjects()
 {
-	if (m_GameState == GameState::InGame)
-	{
-		float fTimeElapsed = m_GameTimer.GetTimeElapsed();
+	float fTimeElapsed = m_GameTimer.GetTimeElapsed();
 
-		if (m_pScene) m_pScene->AnimateObjects(fTimeElapsed);
+	if (m_pScene) m_pScene->AnimateObjects(fTimeElapsed);
 
-		m_pPlayer->Animate(fTimeElapsed, NULL);
-	}
+	m_pPlayer->Animate(fTimeElapsed, NULL);
 }
 
 void CGameFramework::WaitForGpuComplete()
@@ -561,7 +612,7 @@ void CGameFramework::FrameAdvance()
 	}
 	else
 	{
-		if (m_pScene) m_pScene->Render(m_pd3dCommandList, NULL);
+		if (m_pScene) m_pScene->Render(m_pd3dCommandList, m_pCamera);
 	}
 
 	d3dResourceBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;

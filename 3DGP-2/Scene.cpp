@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "Scene.h"
 #include "GameFramework.h"
+#include "UIRectMesh.h"
 #include "ScreenQuadMesh.h"
 #include "UIShader.h"
 
@@ -125,11 +126,14 @@ void CScene::CreateShaderResourceView(ID3D12Device* pd3dDevice, CTexture* pTextu
 	if (pShaderResource && !d3dGpuDescriptorHandle.ptr)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC d3dShaderResourceViewDesc = pTexture->GetShaderResourceViewDesc(nIndex);
+		
+        // Set the GPU descriptor handle for the texture *before* incrementing
+        pTexture->SetGpuDescriptorHandle(nIndex, m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle);
+
 		pd3dDevice->CreateShaderResourceView(pShaderResource, &d3dShaderResourceViewDesc, m_pDescriptorHeap->m_d3dSrvCPUDescriptorNextHandle);
 		m_pDescriptorHeap->m_d3dSrvCPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
 
-		pTexture->SetGpuDescriptorHandle(nIndex, m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle);
-		m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
+		m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize; // Increment after setting
 	}
 }
 
@@ -195,59 +199,100 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
-	// 디스크립터 힙 생성 시 메뉴 텍스처를 위한 SRV 1개 추가
 	m_pDescriptorHeap = new CDescriptorHeap();
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 500); //SuperCobra(17), Gunship(2), Player(1), Skybox(1), Terrain(3), MainMenu(1)
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 502); 
 
 	BuildDefaultLightsAndMaterials();
 
-	// 셰이더 배열 크기를 2로 늘림 (오브젝트 셰이더 + UI 텍스처 셰이더)
 	m_nShaders = 2;
 	m_ppShaders = new CShader*[m_nShaders];
 
 	CObjectsShader* pObjectsShader = new CObjectsShader();
-	pObjectsShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
+	pObjectsShader->AddRef();
 	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
 	m_ppShaders[0] = pObjectsShader;
 
-	m_pSkyBox = new CSkyBox(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 
 	XMFLOAT3 xmf3Scale(18.0f, 6.0f, 18.0f);
 	XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
 	m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
 
-	// UI 렌더링을 위한 CUIShader 생성
 	CUIShader* pUIShader = new CUIShader();
-	pUIShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
+	pUIShader->AddRef();
 	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
 	m_ppShaders[1] = pUIShader;
 
-	m_pMainMenuObject = new CGameObject(1, 1);
 
-	CScreenQuadMesh* pScreenQuadMesh = new CScreenQuadMesh(pd3dDevice, pd3dCommandList);
-	m_pMainMenuObject->SetMesh(0, pScreenQuadMesh);
+	// Create ScreenQuadMesh for background
+	m_pBackgroundObject = new CGameObject(1, 1);
+	CScreenQuadMesh* pBackgroundMesh = new CScreenQuadMesh(pd3dDevice, pd3dCommandList); // Full screen quad
+	m_pBackgroundObject->SetMesh(0, pBackgroundMesh);
 
-	// 1 Texture, 2D Resource, 0 Samplers (Static Sampler 사용), 1 Root Parameter
-	CTexture* pMainMenuTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	pMainMenuTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"SkyBox/SkyBox_0.dds", RESOURCE_TEXTURE2D, 0);
-	// 텍스처를 위한 SRV를 생성합니다. (중요)
-	CScene::CreateShaderResourceView(pd3dDevice, pMainMenuTexture, 0);
-	pMainMenuTexture->SetRootParameterIndex(0, 0); // CUIShader의 루트 시그니처에서 텍스처는 0번 파라미터임
+	CTexture* pBackgroundTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	pBackgroundTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Skybox/SkyBox_0.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, pBackgroundTexture, 0);
+	pBackgroundTexture->SetRootParameterIndex(0, 0);
 
-	CMaterial* pMainMenuMaterial = new CMaterial();
-	pMainMenuMaterial->SetTexture(pMainMenuTexture);
-	pMainMenuMaterial->SetShader(pUIShader);
+	CMaterial* pBackgroundMaterial = new CMaterial();
+	pBackgroundMaterial->SetTexture(pBackgroundTexture);
+	pBackgroundMaterial->SetShader(pUIShader); // Use UIShader for background
+	m_pBackgroundObject->SetMaterial(0, pBackgroundMaterial);
 
-	m_pMainMenuObject->SetMaterial(0, pMainMenuMaterial);
+	// Start Button
+	m_pStartButtonObject = new CGameObject(1, 1);
+	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f, 0.35f, 0.2f, 0.2f); // x, y, width, height in normalized screen coords
+	m_pStartButtonObject->SetMesh(0, pStartButtonMesh);
 
+	m_pStartButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pStartButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Play_Default.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pStartButtonDefaultTexture, 0);
+	m_pStartButtonDefaultTexture->SetRootParameterIndex(0, 0);
+
+	CMaterial* pStartButtonMaterial = new CMaterial();
+	pStartButtonMaterial->SetTexture(m_pStartButtonDefaultTexture);
+	pStartButtonMaterial->SetShader(pUIShader);
+	m_pStartButtonObject->SetMaterial(0, pStartButtonMaterial);
+
+	// Exit Button
+	m_pExitButtonObject = new CGameObject(1, 1);
+	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f, 0.35f, 0.2f, 0.2f); // x, y, width, height in normalized screen coords
+	m_pExitButtonObject->SetMesh(0, pExitButtonMesh);
+
+	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Home_Default.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0);
+	m_pExitButtonDefaultTexture->SetRootParameterIndex(0, 0);
+
+	CMaterial* pExitButtonMaterial = new CMaterial();
+	pExitButtonMaterial->SetTexture(m_pExitButtonDefaultTexture);
+	pExitButtonMaterial->SetShader(pUIShader);
+	m_pExitButtonObject->SetMaterial(0, pExitButtonMaterial);
+
+	// Load Hover Textures
+	m_pStartButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pStartButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Play_Hover.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pStartButtonHoverTexture, 0);
+	m_pStartButtonHoverTexture->SetRootParameterIndex(0, 0);
+
+	m_pExitButtonHoverTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pExitButtonHoverTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Home_Hover.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0);
+	m_pExitButtonHoverTexture->SetRootParameterIndex(0, 0);
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
 void CScene::ReleaseObjects()
 {
-	if (m_pMainMenuObject) m_pMainMenuObject->Release();
+	if (m_pStartButtonObject) m_pStartButtonObject->Release();
+	if (m_pExitButtonObject) m_pExitButtonObject->Release();
+	if (m_pBackgroundObject) m_pBackgroundObject->Release(); // Release background object
+
+	if (m_pStartButtonDefaultTexture) m_pStartButtonDefaultTexture->Release();
+	if (m_pExitButtonDefaultTexture) m_pExitButtonDefaultTexture->Release();
+	if (m_pStartButtonHoverTexture) m_pStartButtonHoverTexture->Release();
+	if (m_pExitButtonHoverTexture) m_pExitButtonHoverTexture->Release();
 
 	if (m_pd3dGraphicsRootSignature) m_pd3dGraphicsRootSignature->Release();
 
@@ -268,7 +313,7 @@ void CScene::ReleaseObjects()
 	}
 
 	if (m_pTerrain) delete m_pTerrain;
-	if (m_pSkyBox) delete m_pSkyBox;
+	// if (m_pSkyBox) delete m_pSkyBox; // Removed SkyBox release
 
 	if (m_ppGameObjects)
 	{
@@ -454,7 +499,7 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 
 void CScene::CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
 {
-	UINT ncbElementBytes = ((sizeof(LIGHTS) + 255) & ~255); //256�� ���
+	UINT ncbElementBytes = ((sizeof(LIGHTS) + 255) & ~255); //256 
 	m_pd3dcbLights = ::CreateBufferResource(pd3dDevice, pd3dCommandList, NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, NULL);
 
 	m_pd3dcbLights->Map(0, NULL, (void **)&m_pcbMappedLights);
@@ -476,13 +521,13 @@ void CScene::ReleaseShaderVariables()
 	}
 
 	if (m_pTerrain) m_pTerrain->ReleaseShaderVariables();
-	if (m_pSkyBox) m_pSkyBox->ReleaseShaderVariables();
+	// if (m_pSkyBox) m_pSkyBox->ReleaseShaderVariables(); // Removed SkyBox related call
 }
 
 void CScene::ReleaseUploadBuffers()
 {
 	if (m_pTerrain) m_pTerrain->ReleaseUploadBuffers();
-	if (m_pSkyBox) m_pSkyBox->ReleaseUploadBuffers();
+	// if (m_pSkyBox) m_pSkyBox->ReleaseUploadBuffers(); // Removed SkyBox related call
 
 	for (int i = 0; i < m_nShaders; i++) m_ppShaders[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseUploadBuffers();
@@ -534,32 +579,73 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		m_pLights[1].m_xmf3Position = m_pPlayer->GetPosition();
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
+
+	UpdateUIButtons(fTimeElapsed); // Call UpdateUIButtons
+}
+
+void CScene::UpdateUIButtons(float fTimeElapsed)
+{
+    if (m_pGameFramework->GetGameState() == GameState::MainMenu)
+    {
+        // Set default textures for all buttons first
+        if (m_pStartButtonObject && m_pStartButtonObject->GetMaterial(0)->GetTexture() != m_pStartButtonDefaultTexture)
+        {
+            m_pStartButtonObject->GetMaterial(0)->SetTexture(m_pStartButtonDefaultTexture);
+        }
+        if (m_pExitButtonObject && m_pExitButtonObject->GetMaterial(0)->GetTexture() != m_pExitButtonDefaultTexture)
+        {
+            m_pExitButtonObject->GetMaterial(0)->SetTexture(m_pExitButtonDefaultTexture);
+        }
+
+        // Apply hover texture if an object is hovered
+        if (m_pHoveredObject == m_pStartButtonObject)
+        {
+            if (m_pStartButtonObject && m_pStartButtonObject->GetMaterial(0)->GetTexture() != m_pStartButtonHoverTexture)
+            {
+                m_pStartButtonObject->GetMaterial(0)->SetTexture(m_pStartButtonHoverTexture);
+            }
+        }
+        else if (m_pHoveredObject == m_pExitButtonObject)
+        {
+            if (m_pExitButtonObject && m_pExitButtonObject->GetMaterial(0)->GetTexture() != m_pExitButtonHoverTexture)
+            {
+                m_pExitButtonObject->GetMaterial(0)->SetTexture(m_pExitButtonHoverTexture);
+            }
+        }
+    }
 }
 
 void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
 	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
 	{
-		// 메인 메뉴 렌더링 전, 뷰포트와 씨저렉트를 설정합니다.
 		if (m_pGameFramework->GetCamera()) m_pGameFramework->GetCamera()->SetViewportsAndScissorRects(pd3dCommandList);
 
-		if (m_pMainMenuObject && m_ppShaders[1])
+		// Render Background first in MainMenu state
+		if (m_pBackgroundObject)
 		{
-			// UI 렌더링을 위해 UI 전용 루트 시그니처를 설정합니다.
-			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
+			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1]; // Assuming UIShader is at index 1
 			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
-			// UI 렌더링에 필요한 디스크립터 힙을 설정합니다.
 			ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 			pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+			m_pBackgroundObject->Render(pd3dCommandList, NULL);
+		}
 
-			m_pMainMenuObject->Render(pd3dCommandList, NULL);
+		if (m_ppShaders[1])
+		{
+			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
+			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
+			// Descriptor heaps are already set, no need to set again unless different heaps are used
+			// ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
+			// pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+			if (m_pStartButtonObject) m_pStartButtonObject->Render(pd3dCommandList, NULL);
+			if (m_pExitButtonObject) m_pExitButtonObject->Render(pd3dCommandList, NULL);
 		}
 	}
 	else
 	{
-		// 3D InGame 렌더링을 위해 메인 루트 시그니처를 설정합니다.
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
-		// 3D 씬 렌더링에 필요한 디스크립터 힙을 설정합니다.
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
@@ -571,13 +657,57 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
 
-		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
+		// if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera); // Removed SkyBox rendering
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 
 		for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Render(pd3dCommandList, pCamera);
 		
-		// 3D 오브젝트 셰이더만 렌더링합니다.
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 	}
 }
 
+CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View)
+{
+    // For UI objects, the pick position is in screen space NDC [-1, 1].
+    // We check against the bounding box of the UI buttons.
+
+    auto IsPointInBox = [](const XMFLOAT3& point, const CGameObject* pObject) -> bool {
+        CMesh* pMesh = pObject->GetMesh(0);
+        if (!pMesh) return false;
+
+        CUIRectMesh* pUIMesh = dynamic_cast<CUIRectMesh*>(pMesh);
+        if (!pUIMesh) return false; // Not a UI Rect Mesh
+
+        // Get normalized coordinates from the UI Rect Mesh
+        float normalizedX = pUIMesh->GetNormalizedX();
+        float normalizedY = pUIMesh->GetNormalizedY();
+        float normalizedWidth = pUIMesh->GetNormalizedWidth();
+        float normalizedHeight = pUIMesh->GetNormalizedHeight();
+
+        // Convert normalized [0,1] to NDC [-1,1]
+        float ndcLeft = (normalizedX * 2.0f) - 1.0f;
+        float ndcRight = ndcLeft + (normalizedWidth * 2.0f);
+        float ndcTop = 1.0f - (normalizedY * 2.0f); // Y-axis is inverted
+        float ndcBottom = ndcTop - (normalizedHeight * 2.0f);
+
+        // Check if the point is within the box (with a small epsilon for robustness)
+        const float epsilon = 0.0001f; // Small epsilon for floating-point comparisons
+        if (point.x >= (ndcLeft - epsilon) && point.x <= (ndcRight + epsilon) &&
+            point.y >= (ndcBottom - epsilon) && point.y <= (ndcTop + epsilon)) {
+            return true;
+        }
+        return false;
+    };
+
+    if (m_pStartButtonObject && IsPointInBox(xmf3PickPosition, m_pStartButtonObject))
+    {
+        return m_pStartButtonObject;
+    }
+
+    if (m_pExitButtonObject && IsPointInBox(xmf3PickPosition, m_pExitButtonObject))
+    {
+        return m_pExitButtonObject;
+    }
+
+    return nullptr;
+}

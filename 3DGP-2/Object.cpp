@@ -525,22 +525,33 @@ void CGameObject::SetScale(float x, float y, float z)
 	UpdateTransform(NULL);
 }
 
-XMFLOAT3 CGameObject::GetPosition()
+XMFLOAT3 CGameObject::GetScale() const
+{
+    XMVECTOR scale;
+    XMVECTOR rotation;
+    XMVECTOR translation;
+    XMMatrixDecompose(&scale, &rotation, &translation, XMLoadFloat4x4(&m_xmf4x4World));
+    XMFLOAT3 xmf3Scale;
+    XMStoreFloat3(&xmf3Scale, scale);
+    return xmf3Scale;
+}
+
+XMFLOAT3 CGameObject::GetPosition() const
 {
 	return(XMFLOAT3(m_xmf4x4World._41, m_xmf4x4World._42, m_xmf4x4World._43));
 }
 
-XMFLOAT3 CGameObject::GetLook()
+XMFLOAT3 CGameObject::GetLook() const
 {
 	return(Vector3::Normalize(XMFLOAT3(m_xmf4x4World._31, m_xmf4x4World._32, m_xmf4x4World._33)));
 }
 
-XMFLOAT3 CGameObject::GetUp()
+XMFLOAT3 CGameObject::GetUp() const
 {
 	return(Vector3::Normalize(XMFLOAT3(m_xmf4x4World._21, m_xmf4x4World._22, m_xmf4x4World._23)));
 }
 
-XMFLOAT3 CGameObject::GetRight()
+XMFLOAT3 CGameObject::GetRight() const
 {
 	return(Vector3::Normalize(XMFLOAT3(m_xmf4x4World._11, m_xmf4x4World._12, m_xmf4x4World._13)));
 }
