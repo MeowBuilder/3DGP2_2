@@ -111,6 +111,14 @@ public:
 
 	virtual void OnPlayerUpdateCallback(float fTimeElapsed);
 	virtual void OnCameraUpdateCallback(float fTimeElapsed);
+
+private:
+	CGameObject					*m_pMainRotorFrame = NULL;
+	CGameObject					*m_pTailRotorFrame = NULL;
+
+public:
+	virtual void PrepareAnimate();
+	virtual void Animate(float fTimeElapsed, XMFLOAT4X4 *pxmf4x4Parent = NULL);
 };
 
 

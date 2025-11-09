@@ -370,8 +370,8 @@ CTerrainPlayer::CTerrainPlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	// If issues arise, this might need to be revisited.
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);	
 
-	CTexturedRectMesh *pCubeMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 4.0f, 12.0f, 4.0f);
-	SetMesh(0, pCubeMesh);
+	// CTexturedRectMesh *pCubeMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 4.0f, 12.0f, 4.0f);
+	// SetMesh(0, pCubeMesh);
 
 	CPlayerShader *pShader = new CPlayerShader();
 	pShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
@@ -380,6 +380,10 @@ CTerrainPlayer::CTerrainPlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandLi
 	// 3DGP-2's CPlayer does not have m_pd3dcbPlayer.
 	// For now, I'll comment this out. If the player needs its own constant buffer, it needs to be added to CPlayer.
 
+	CGameObject* pGameObject = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/Mi24.bin", pShader);
+	SetChild(pGameObject);
+
+	PrepareAnimate();
 
 	SetShader(0,pShader);
 
@@ -474,5 +478,27 @@ void CTerrainPlayer::OnCameraUpdateCallback(float fTimeElapsed)
 			p3rdPersonCamera->SetLookAt(GetPosition());
 		}
 	}
+}
+
+void CTerrainPlayer::PrepareAnimate()
+{
+	m_pMainRotorFrame = FindFrame("Top_Rotor");
+	m_pTailRotorFrame = FindFrame("Tail_Rotor");
+}
+
+void CTerrainPlayer::Animate(float fTimeElapsed, XMFLOAT4X4 *pxmf4x4Parent)
+{
+	if (m_pMainRotorFrame)
+	{
+		XMMATRIX xmmtxRotate = XMMatrixRotationY(XMConvertToRadians(360.0f * 2.0f) * fTimeElapsed);
+		m_pMainRotorFrame->m_xmf4x4Transform = Matrix4x4::Multiply(xmmtxRotate, m_pMainRotorFrame->m_xmf4x4Transform);
+	}
+	if (m_pTailRotorFrame)
+	{
+		XMMATRIX xmmtxRotate = XMMatrixRotationX(XMConvertToRadians(360.0f * 4.0f) * fTimeElapsed);
+		m_pTailRotorFrame->m_xmf4x4Transform = Matrix4x4::Multiply(xmmtxRotate, m_pTailRotorFrame->m_xmf4x4Transform);
+	}
+
+	CPlayer::Animate(fTimeElapsed, pxmf4x4Parent);
 }
 
