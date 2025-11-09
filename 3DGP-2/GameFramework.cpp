@@ -462,9 +462,8 @@ void CGameFramework::BuildObjects()
 	m_pScene = new CScene(this);
 	if (m_pScene) m_pScene->BuildObjects(m_pd3dDevice, m_pd3dCommandList);
 
-	CAirplanePlayer *pAirplanePlayer = new CAirplanePlayer(m_pd3dDevice, m_pd3dCommandList, m_pScene->GetGraphicsRootSignature());
-	pAirplanePlayer->SetPosition(XMFLOAT3(920.0f, 745.0f, 1270.0));
-	m_pScene->m_pPlayer = m_pPlayer = pAirplanePlayer;
+	CTerrainPlayer *pTerrainPlayer = new CTerrainPlayer(m_pd3dDevice, m_pd3dCommandList, m_pScene->GetGraphicsRootSignature(), m_pScene->GetTerrain());
+	m_pScene->m_pPlayer = m_pPlayer = pTerrainPlayer;
 	m_pCamera = m_pPlayer->GetCamera();
 
 	m_pd3dCommandList->Close();

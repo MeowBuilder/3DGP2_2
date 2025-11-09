@@ -106,7 +106,7 @@ public:
 	CGameObject* PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View);
 	void UpdateUIButtons(float fTimeElapsed); // New: Function to update UI button states
 
-
+	CHeightMapTerrain* GetTerrain() { return m_pTerrain; }
 protected:
 	CGameFramework						*m_pGameFramework = NULL;
 

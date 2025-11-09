@@ -386,7 +386,10 @@ void CGameObject::SetMesh(int nIndex, CMesh* pMesh)
 
 void CGameObject::SetShader(int nMaterial, CShader *pShader)
 {
-	if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->SetShader(pShader);
+	if (m_nMaterials)
+	{
+		if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->SetShader(pShader);
+	}
 }
 
 void CGameObject::SetMaterial(int nMaterial, CMaterial *pMaterial)

@@ -218,6 +218,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
 	m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
 
+	m_pPlayer = new CTerrainPlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
+
 	CUIShader* pUIShader = new CUIShader();
 	pUIShader->AddRef();
 	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
@@ -293,6 +295,8 @@ void CScene::ReleaseObjects()
 	if (m_pExitButtonDefaultTexture) m_pExitButtonDefaultTexture->Release();
 	if (m_pStartButtonHoverTexture) m_pStartButtonHoverTexture->Release();
 	if (m_pExitButtonHoverTexture) m_pExitButtonHoverTexture->Release();
+
+
 
 	if (m_pd3dGraphicsRootSignature) m_pd3dGraphicsRootSignature->Release();
 

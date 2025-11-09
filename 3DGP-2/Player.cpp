@@ -5,6 +5,8 @@
 #include "stdafx.h"
 #include "Player.h"
 #include "Shader.h"
+#include "Scene.h"
+#include "Mesh.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPlayer
@@ -44,15 +46,18 @@ CPlayer::~CPlayer()
 void CPlayer::CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	if (m_pCamera) m_pCamera->CreateShaderVariables(pd3dDevice, pd3dCommandList);
+	CGameObject::CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
 void CPlayer::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 {
+	CGameObject::UpdateShaderVariables(pd3dCommandList);
 }
 
 void CPlayer::ReleaseShaderVariables()
 {
 	if (m_pCamera) m_pCamera->ReleaseShaderVariables();
+	CGameObject::ReleaseShaderVariables();
 }
 
 void CPlayer::Move(DWORD dwDirection, float fDistance, bool bUpdateVelocity)
@@ -336,5 +341,138 @@ CCamera *CAirplanePlayer::ChangeCamera(DWORD nNewCameraMode, float fTimeElapsed)
 	Update(fTimeElapsed);
 
 	return(m_pCamera);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 
+CTerrainPlayer::CTerrainPlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, void *pContext, int nMeshes) : CPlayer()
+{
+	m_xmf3Position = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	m_xmf3Right = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	m_xmf3Up = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	m_xmf3Look = XMFLOAT3(0.0f, 0.0f, 1.0f);
+
+	m_xmf3Velocity = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	m_xmf3Gravity = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	m_fMaxVelocityXZ = 0.0f;
+	m_fMaxVelocityY = 0.0f;
+	m_fFriction = 0.0f;
+
+	m_fPitch = 0.0f;
+	m_fRoll = 0.0f;
+	m_fYaw = 0.0f;
+
+	m_pCamera = ChangeCamera(THIRD_PERSON_CAMERA, 0.0f);
+
+	// CPlayer::CreateShaderVariables is called here, but it's empty in 3DGP-2's CPlayer.
+	// The original reference project had a m_pd3dcbPlayer and m_pcbMappedPlayer in CPlayer.
+	// For now, I'll assume the shader variables are handled by the CPlayerShader set below.
+	// If issues arise, this might need to be revisited.
+	CreateShaderVariables(pd3dDevice, pd3dCommandList);	
+
+	CTexturedRectMesh *pCubeMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 4.0f, 12.0f, 4.0f);
+	SetMesh(0, pCubeMesh);
+
+	CPlayerShader *pShader = new CPlayerShader();
+	pShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	pShader->CreateShaderVariables(pd3dDevice, pd3dCommandList);
+	// The original reference project used CScene::CreateConstantBufferView, which is a static method.
+	// 3DGP-2's CPlayer does not have m_pd3dcbPlayer.
+	// For now, I'll comment this out. If the player needs its own constant buffer, it needs to be added to CPlayer.
+
+
+	SetShader(0,pShader);
+
+	CHeightMapTerrain *pTerrain = (CHeightMapTerrain *)pContext;
+	SetPosition(XMFLOAT3(1440.0f, 233.0f, 320.0f));
+	SetPlayerUpdatedContext(pTerrain);
+	SetCameraUpdatedContext(pTerrain);
+}
+
+CTerrainPlayer::~CTerrainPlayer()
+{
+}
+
+CCamera *CTerrainPlayer::ChangeCamera(DWORD nNewCameraMode, float fTimeElapsed)
+{
+	DWORD nCurrentCameraMode = (m_pCamera) ? m_pCamera->GetMode() : 0x00;
+	if (nCurrentCameraMode == nNewCameraMode) return(m_pCamera);
+	switch (nNewCameraMode)
+	{
+		case FIRST_PERSON_CAMERA:
+			SetFriction(250.0f);
+			SetGravity(XMFLOAT3(0.0f, -400.0f, 0.0f));
+			SetMaxVelocityXZ(300.0f);
+			SetMaxVelocityY(400.0f);
+			m_pCamera = OnChangeCamera(FIRST_PERSON_CAMERA, nCurrentCameraMode);
+			m_pCamera->SetTimeLag(0.0f);
+			m_pCamera->SetOffset(XMFLOAT3(0.0f, 0.0f, 0.0f));
+			m_pCamera->GenerateProjectionMatrix(1.01f, 50000.0f, ASPECT_RATIO, 60.0f);
+			break;
+		case SPACESHIP_CAMERA:
+			SetFriction(125.0f);
+			SetGravity(XMFLOAT3(0.0f, 0.0f, 0.0f));
+			SetMaxVelocityXZ(300.0f);
+			SetMaxVelocityY(400.0f);
+			m_pCamera = OnChangeCamera(SPACESHIP_CAMERA, nCurrentCameraMode);
+			m_pCamera->SetTimeLag(0.0f);
+			m_pCamera->SetOffset(XMFLOAT3(0.0f, 0.0f, 0.0f));
+			m_pCamera->GenerateProjectionMatrix(1.01f, 50000.0f, ASPECT_RATIO, 60.0f);
+			break;
+		case THIRD_PERSON_CAMERA:
+			SetFriction(250.0f);
+			SetGravity(XMFLOAT3(0.0f, -250.0f, 0.0f));
+			SetMaxVelocityXZ(300.0f);
+			SetMaxVelocityY(400.0f);
+			m_pCamera = OnChangeCamera(THIRD_PERSON_CAMERA, nCurrentCameraMode);
+			m_pCamera->SetTimeLag(0.25f);
+			m_pCamera->SetOffset(XMFLOAT3(0.0f, 20.0f, -50.0f));
+			m_pCamera->GenerateProjectionMatrix(1.01f, 50000.0f, ASPECT_RATIO, 60.0f);
+			break;
+		default:
+			break;
+	}
+	m_pCamera->SetPosition(Vector3::Add(m_xmf3Position, m_pCamera->GetOffset()));
+	Update(fTimeElapsed);
+
+	return(m_pCamera);
+}
+
+void CTerrainPlayer::OnPlayerUpdateCallback(float fTimeElapsed)
+{
+	CHeightMapTerrain *pTerrain = (CHeightMapTerrain *)m_pPlayerUpdatedContext;
+	XMFLOAT3 xmf3Scale = pTerrain->GetScale();
+	XMFLOAT3 xmf3PlayerPosition = GetPosition();
+	int z = (int)(xmf3PlayerPosition.z / xmf3Scale.z);
+	bool bReverseQuad = ((z % 2) != 0);
+	float fHeight = pTerrain->GetHeight(xmf3PlayerPosition.x, xmf3PlayerPosition.z, bReverseQuad) + 6.0f;
+	if (xmf3PlayerPosition.y < fHeight)
+	{
+		XMFLOAT3 xmf3PlayerVelocity = GetVelocity();
+		xmf3PlayerVelocity.y = 0.0f;
+		SetVelocity(xmf3PlayerVelocity);
+		xmf3PlayerPosition.y = fHeight;
+		SetPosition(xmf3PlayerPosition);
+	}
+}
+
+void CTerrainPlayer::OnCameraUpdateCallback(float fTimeElapsed)
+{
+	CHeightMapTerrain *pTerrain = (CHeightMapTerrain *)m_pCameraUpdatedContext;
+	XMFLOAT3 xmf3Scale = pTerrain->GetScale();
+	XMFLOAT3 xmf3CameraPosition = m_pCamera->GetPosition();
+	int z = (int)(xmf3CameraPosition.z / xmf3Scale.z);
+	bool bReverseQuad = ((z % 2) != 0);
+	float fHeight = pTerrain->GetHeight(xmf3CameraPosition.x, xmf3CameraPosition.z, bReverseQuad) + 5.0f;
+	if (xmf3CameraPosition.y <= fHeight)
+	{
+		xmf3CameraPosition.y = fHeight;
+		m_pCamera->SetPosition(xmf3CameraPosition);
+		if (m_pCamera->GetMode() == THIRD_PERSON_CAMERA)
+		{
+			CThirdPersonCamera *p3rdPersonCamera = (CThirdPersonCamera *)m_pCamera;
+			p3rdPersonCamera->SetLookAt(GetPosition());
+		}
+	}
 }
 
