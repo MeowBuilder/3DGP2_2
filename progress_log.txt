@@ -1,58 +1,11 @@
-2025년 11월 8일 토요일: 초기 설정 완료 및 project_summary.txt 작성.
-2025년 11월 8일 토요일: CGameFramework 클래스 분석 완료 및 project_summary.txt에 추가. CGameFramework는 DirectX 12 기반 3D 애플리케이션의 핵심 프레임워크로, 초기화, 리소스 관리, 게임 루프 (입력, 업데이트, 렌더링), 종료 처리를 담당함. 주요 구성 요소 및 워크플로우 파악.
-2025년 11월 8일 토요일: CScene 클래스 분석 완료 및 project_summary.txt에 추가. CScene은 게임 씬의 핵심 관리자로, 객체, 조명, 렌더링 파이프라인 설정 및 디스크립터 힙 관리를 담당함. 씬 내의 모든 객체 (스카이박스, 지형, 게임 객체, 셰이더)의 생성, 업데이트, 렌더링, 해제를 처리함.
-2025년 11월 8일 토요일: CPlayer 클래스 분석 완료 및 project_summary.txt에 추가. CPlayer는 게임 내 플레이어 캐릭터의 핵심 동작(이동, 회전, 물리 시뮬레이션, 카메라 연동)을 정의하며, CAirplanePlayer는 이를 확장하여 비행기 플레이어의 특정 동작과 애니메이션을 구현함.
-2025년 11월 8일 토요일: CCamera 클래스 분석 완료 및 project_summary.txt에 추가. CCamera 및 파생 클래스들은 3D 애플리케이션에서 다양한 시점을 제공하며, 뷰/투영 행렬 생성, 뷰포트/가위 사각형 설정, 셰이더 변수 업데이트, 플레이어 객체와의 상호작용을 관리함.
-2025년 11월 8일 토요일: CGameObject, CTexture, CMaterial 클래스 분석 완료 및 project_summary.txt에 추가. 이 클래스들은 3D 씬의 모든 시각적 객체와 그 속성을 관리하는 핵심 구성 요소로, 계층적 구조, 메쉬/재질 관리, 텍스처 로딩/바인딩, 변환 및 애니메이션 처리를 담당함.
-2025년 11월 8일 토요일: CMesh, CRawFormatImage, CHeightMapImage 클래스 분석 완료 및 project_summary.txt에 추가. 이 클래스들은 3D 객체의 기하학적 구조를 정의하고 렌더링을 위한 정점 및 인덱스 데이터를 관리하며, 높이맵 기반 지형 생성과 같은 특수 기능을 제공함.
-2025년 11월 8일 토요일: CShader 클래스 분석 완료 및 project_summary.txt에 추가. CShader 및 파생 클래스들은 렌더링 파이프라인의 핵심으로, 셰이더 프로그램과 파이프라인 상태 객체(PSO)를 관리하며, 셰이더 컴파일, 렌더링 상태 설정, 리소스 바인딩 기능을 제공함.
-2025년 11월 8일 토요일: 시작 화면 씬 구현 완료. CIntroScene 클래스를 추가하여 시작 화면을 별도의 씬으로 분리하고, CTexturedRectObject를 사용하여 텍스처 이미지를 렌더링하도록 구현함. GameFramework를 수정하여 시작 시 CIntroScene을 로드하고, 사용자 입력(마우스 클릭 또는 Enter 키)에 따라 게임 플레이 씬으로 전환하는 로직을 추가함.
-2025년 11월 8일 토요일: CObjectsShader 클래스 내 CGameObject**m_ppObjects 멤버 변수의 초기화 오류 수정. C++11 표준에 맞춰 nullptr로 명시적으로 초기화하도록 변경함.
-2025년 11월 8일 토요일: CIntroScene에 시작 및 나가기 버튼 구현 완료. CTexturedRectObject를 사용하여 버튼을 생성하고, UI Image 폴더의 Default/Hover DDS 텍스처를 로드하여 마우스 오버 시 텍스처가 변경되도록 구현함. CIntroScene::OnProcessingMouseMessage 함수를 수정하여 버튼 클릭 시 게임 시작 또는 애플리케이션 종료 동작을 수행하도록 함. CGameObject::GetMaterial 함수를 추가하여 CIntroScene에서 버튼의 재질에 접근할 수 있도록 함.
-2025년 11월 8일 토요일: CCamera::UpdateShaderVariables 함수에서 발생한 액세스 위반 오류 수정. CGameFramework::BuildIntroScene 함수에서 m_pCamera 생성 후 m_pCamera->CreateShaderVariables(m_pd3dDevice, m_pd3dCommandList);를 호출하여 카메라의 상수 버퍼를 올바르게 초기화하도록 수정함.
-2025년 11월 8일 토요일: CTexture 소멸자에서 발생한 액세스 위반 오류 수정. CIntroScene::ReleaseObjects 함수에서 CMaterial이 참조 카운팅을 통해 관리하는 텍스처 객체들에 대한 직접적인 Release() 호출을 제거하여 이중 해제(double free)를 방지함.
-2025년 11월 8일 토요일: CTexture 소멸자 및 ReleaseUploadBuffers 함수 수정. ID3D12Resource 포인터를 Release() 호출 후 NULL로 설정하여 유효하지 않은 메모리 접근 및 잠재적인 이중 해제 오류를 방지함.
-2025년 11월 8일 토요일: CTexture 소멸자에서 m_ppstrTextureNames 해제 시 발생하는 힙 손상 오류 수정. CTexture 클래스에 복사 생성자와 복사 할당 연산자를 delete로 선언하여 얕은 복사로 인한 이중 해제를 원천적으로 방지함.
-2025년 11월 8일 토요일: CGameObject 소멸자에서 발생하는 힙 손상 오류 수정. CGameObject 클래스에 복사 생성자와 복사 할당 연산자를 delete로 선언하여 얕은 복사로 인한 이중 해제를 원천적으로 방지함.
-2025년 11월 8일 토요일: CGameFramework::ReleaseObjects() 함수에서 m_pPlayer 이중 해제 오류 수정. CPlayer는 참조 카운팅을 사용하므로 m_pPlayer->Release() 호출 후 delete m_pPlayer; 라인을 제거하여 이중 해제를 방지함.
-2025년 11월 8일 토요일: CGameFramework::ReleaseObjects() 함수에서 m_pCamera 이중 해제 오류 수정. m_pCamera는 m_pPlayer가 소유하고 있으므로 m_pPlayer가 해제될 때 함께 해제됩니다. 따라서 delete m_pCamera; 라인을 제거하여 이중 해제를 방지함.
-2025년 11월 8일 토요일: CGameFramework::FrameAdvance() 함수 수정. 메뉴 씬에서도 SetWindowText를 통해 프레임 레이트가 표시되도록 로직을 변경함. m_bGameStarted가 false일 때는 프레임 레이트만 표시하고, true일 때는 기존처럼 프레임 레이트와 플레이어 위치를 모두 표시함.
-2025년 11월 8일 토요일: 시작 화면 버튼 오브젝트 미표시 문제 해결.
-    - CIntroScene::BuildObjects()에서 불필요한 CreateShaderVariables 호출 제거.
-    - UI 렌더링을 위해 CStandardShader를 상속받는 CIntroUIShader 클래스 추가. CIntroUIShader::CreateDepthStencilState()를 오버라이드하여 깊이 테스트 및 깊이 버퍼 쓰기를 비활성화함.
-    - CIntroScene::BuildObjects()에서 배경 이미지와 버튼에 CStandardShader 대신 CIntroUIShader를 사용하도록 수정.
-2025년 11월 8일 토요일: 시작 화면 버튼 오브젝트 미표시 문제 해결 (추가).
-    - CIntroScene::BuildObjects()에서 배경 이미지, 플레이 버튼, 나가기 버튼의 CMaterial에 MATERIAL_ALBEDO_MAP 플래그를 설정하여 셰이더가 텍스처를 올바르게 샘플링하도록 수정함.
-2025년 11월 8일 토요일: 시작 화면 버튼 오브젝트 미표시 문제 해결 (최종).
-    - CIntroScene::BuildObjects()에서 배경 이미지, 플레이 버튼 Default/Hover, 나가기 버튼 Default/Hover 텍스처의 CScene::CreateShaderResourceView 호출 시 nRootParameterStartIndex를 모두 3으로 통일함. 이로써 모든 UI 텍스처가 PSStandard 셰이더의 gtxtAlbedoTexture (t6)에 올바르게 바인딩되어 텍스처 바인딩과 셰이더 샘플링 간의 불일치 문제를 해결함.
-2025년 11월 8일 토요일: CIntroScene::BuildObjects()에서 nullptr 읽기 액세스 위반 예외 해결.
-    - m_pPlayButtonDefaultTexture, m_pPlayButtonHoverTexture, m_pExitButtonDefaultTexture, m_pExitButtonHoverTexture 변수들이 new CTexture(...)를 통해 객체가 할당되지 않은 상태에서 LoadTextureFromDDSFile 함수를 호출하여 발생한 예외를 수정함.
-    - 각 LoadTextureFromDDSFile 호출 전에 해당 CTexture 객체를 new CTexture(...)로 할당하는 코드를 추가하여 nullptr 참조 문제를 해결함.
-2025년 11월 8일 토요일: 앱 시작 시 기본 씬을 게임 씬에서 인트로 씬으로 변경하고, 인트로 씬에서 Enter 키를 눌러 게임 씬으로 전환하는 기능 재활성화.
-    - CGameFramework::OnCreate() 함수 내에서 BuildGameScene() 호출을 BuildIntroScene()으로 변경하고, m_bGameStarted = true; 라인을 제거함.
-    - CGameFramework::OnProcessingKeyboardMessage() 및 CIntroScene::OnProcessingKeyboardMessage()의 기존 로직을 통해 Enter 키 입력 시 씬 전환이 이루어지도록 함.
-2025년 11월 8일 토요일: UI 오브젝트 렌더링 테스트를 위해 CIntroScene::BuildObjects()에서 UI 오브젝트들의 확산 색상 및 Z 위치를 조정함.
-    - 배경 이미지 재질의 확산 색상을 빨간색(XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f))으로 설정.
-    - 플레이 버튼 재질의 확산 색상을 초록색(XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f))으로 설정.
-    - 나가기 버튼 재질의 확산 색상을 파란색(XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f))으로 설정.
-    - 플레이 버튼과 나가기 버튼의 Z 위치를 -0.1f로 조정하여 카메라 클리핑 문제 방지.
-2025년 11월 8일 토요일: CIntroScene에서 배경 이미지 관련 코드 완전히 제거.
-    - CIntroScene::BuildObjects()에서 m_pIntroImage 객체 생성 및 관련 텍스처, 셰이더, 재질 설정 코드 제거.
-    - CreateCbvSrvDescriptorHeaps 호출 시 텍스처 SRV 공간을 5개에서 4개로 변경.
-    - CIntroScene::Render()에서 m_pIntroImage->Render() 호출 제거.
-    - CIntroScene::ReleaseObjects()에서 m_pIntroImage->Release() 호출 제거.
-2025년 11월 8일 토요일: CIntroScene에 헬리콥터 오브젝트 추가 및 렌더링 테스트.
-    - Scene.h의 CIntroScene 클래스에 CMi24Object* m_pHelicopter 멤버 변수 추가.
-    - CIntroScene::BuildObjects()에서 CreateCbvSrvDescriptorHeaps 호출 시 텍스처 SRV 공간을 4개에서 21개(헬리콥터 텍스처 17개 포함)로 확장.
-    - CIntroScene::BuildObjects()에서 CMi24Object 헬리콥터를 생성하고 초기 위치(0.0f, 0.0f, 10.0f)와 크기(0.1f, 0.1f, 0.1f) 설정.
-    - CIntroScene::Render()에서 m_pHelicopter->Render() 호출 추가.
-    - CIntroScene::ReleaseObjects()에서 m_pHelicopter->Release() 호출 추가.
-2025년 11월 8일 토요일: CIntroScene 렌더링 파이프라인 점검 및 라이트 관련 초기화 추가.
-    - CIntroScene::Render()에서 주석 처리되었던 UpdateShaderVariables() 및 SetGraphicsRootConstantBufferView() 호출을 다시 활성화하여 라이트 관련 셰이더 변수가 업데이트되도록 함.
-    - CIntroScene::BuildObjects()에 BuildDefaultLightsAndMaterials() 및 CreateShaderVariables() 호출을 추가하여 CScene의 라이트 관련 멤버 변수들을 초기화하고 GPU에 상수 버퍼를 생성하도록 함.
-    - CIntroScene::ReleaseObjects()에 ReleaseShaderVariables() 호출을 추가하여 라이트 관련 리소스를 해제하도록 함.
-2025년 11월 8일 토요일: CIntroScene의 헬리콥터 오브젝트를 CAirplanePlayer로 대체.
-    - CIntroScene::BuildObjects()에서 기존 m_pHelicopter 생성 코드를 m_pPlayer (CAirplanePlayer) 생성 코드로 대체하고 초기 위치 및 크기 설정.
-    - CIntroScene::AnimateObjects()에서 m_pPlayer->Animate() 호출 추가.
-    - CIntroScene::Render()에서 m_pHelicopter->Render() 호출을 m_pPlayer->Render() 호출로 대체.
-    - CIntroScene::ReleaseObjects()에서 m_pHelicopter->Release() 호출을 m_pPlayer->Release() 호출로 대체.
+# 진행 상황 로그 (Progress Log)
+
+## 2025년 11월 9일
+- **작업:** 시작 화면 기능 통합 및 구조 변경
+- **세부 내용:**
+    1. '참고용' 폴더의 `GameFramework`, `Scene` 관련 최신 소스 코드를 `3DGP-2` 프로젝트에 복사 및 덮어쓰기 완료.
+    2. UI 렌더링에 필요한 신규 파일(`UIShader.cpp/h`, `ScreenQuadMesh.cpp/h`)을 프로젝트에 추가.
+    3. Visual Studio 프로젝트 파일(`.vcxproj`)을 수정하여 신규 파일들이 컴파일되도록 설정.
+    4. `GameState` (MainMenu, InGame)를 기반으로 렌더링 로직이 분기되는 것을 코드 분석을 통해 확인.
+    5. 작업 내용을 `backup/start-screen` 브랜치에 커밋하여 백업 완료.
+- **상태:** 완료
