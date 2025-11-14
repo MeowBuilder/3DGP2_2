@@ -212,15 +212,43 @@ public:
 
 
 
-	CHeightMapTerrain* GetTerrain() { return m_pTerrain; }
-
-protected:
-
-	CGameFramework						*m_pGameFramework = NULL;
+		CHeightMapTerrain* GetTerrain() { return m_pTerrain; }
 
 
 
-		CGameObject*					m_pMainMenuObject = NULL;
+	
+
+
+
+		void ToggleBoundingBox() { m_bRenderBoundingBoxes = !m_bRenderBoundingBoxes; }
+
+
+
+	protected:
+
+
+
+		bool m_bRenderBoundingBoxes = false;
+
+
+
+		CBoundingBoxObject* m_pBoundingBoxObject = NULL;
+
+
+
+	
+
+
+
+		CGameFramework						*m_pGameFramework = NULL;
+
+
+
+	
+
+
+
+			CGameObject*					m_pMainMenuObject = NULL;
 
 
 

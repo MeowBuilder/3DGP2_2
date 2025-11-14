@@ -284,6 +284,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pExitButtonHoverTexture->SetRootParameterIndex(0, 0);
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
+
+	m_pBoundingBoxObject = new CBoundingBoxObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 }
 
 void CScene::ReleaseObjects()
@@ -297,7 +299,7 @@ void CScene::ReleaseObjects()
 	if (m_pStartButtonHoverTexture) m_pStartButtonHoverTexture->Release();
 	if (m_pExitButtonHoverTexture) m_pExitButtonHoverTexture->Release();
 
-
+	if (m_pBoundingBoxObject) m_pBoundingBoxObject->Release();
 
 	if (m_pd3dGraphicsRootSignature) m_pd3dGraphicsRootSignature->Release();
 
@@ -683,6 +685,33 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
+
+		if (m_bRenderBoundingBoxes)
+		{
+			m_pBoundingBoxObject->GetMaterial(0)->m_pShader->Render(pd3dCommandList, pCamera);
+			for (int i = 0; i < m_nGameObjects; i++)
+			{
+				if (m_ppGameObjects[i] && m_ppGameObjects[i]->IsActive())
+				{
+					BoundingOrientedBox xmOOBB = m_ppGameObjects[i]->GetOOBB();
+					XMMATRIX S = XMMatrixScaling(xmOOBB.Extents.x * 2.0f, xmOOBB.Extents.y * 2.0f, xmOOBB.Extents.z * 2.0f);
+					XMMATRIX R = XMMatrixRotationQuaternion(XMLoadFloat4(&xmOOBB.Orientation));
+					XMMATRIX T = XMMatrixTranslation(xmOOBB.Center.x, xmOOBB.Center.y, xmOOBB.Center.z);
+					XMStoreFloat4x4(&m_pBoundingBoxObject->m_xmf4x4World, S * R * T);
+					m_pBoundingBoxObject->Render(pd3dCommandList, pCamera);
+				}
+			}
+
+			if (m_pPlayer)
+			{
+				BoundingOrientedBox xmOOBB = m_pPlayer->GetOOBB();
+				XMMATRIX S = XMMatrixScaling(xmOOBB.Extents.x * 2.0f, xmOOBB.Extents.y * 2.0f, xmOOBB.Extents.z * 2.0f);
+				XMMATRIX R = XMMatrixRotationQuaternion(XMLoadFloat4(&xmOOBB.Orientation));
+				XMMATRIX T = XMMatrixTranslation(xmOOBB.Center.x, xmOOBB.Center.y, xmOOBB.Center.z);
+				XMStoreFloat4x4(&m_pBoundingBoxObject->m_xmf4x4World, S * R * T);
+				m_pBoundingBoxObject->Render(pd3dCommandList, pCamera);
+			}
+		}
 	}
 }
 

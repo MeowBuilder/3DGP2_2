@@ -381,6 +381,9 @@ void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPA
 				case VK_F9:
 					ChangeSwapChainState();
 					break;
+				case VK_F12:
+					m_pScene->ToggleBoundingBox();
+					break;
 				case VK_F5:
 					break;
 				default:

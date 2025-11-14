@@ -261,3 +261,30 @@ float4 PS_UI(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 {
 	return gtxtUITexture.Sample(gssWrap, input.uv);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Bounding Box Shaders
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct VS_BOUNDINGBOX_INPUT
+{
+	float3 position : POSITION;
+};
+
+struct VS_BOUNDINGBOX_OUTPUT
+{
+	float4 position : SV_POSITION;
+};
+
+VS_BOUNDINGBOX_OUTPUT VSBoundingBox(VS_BOUNDINGBOX_INPUT input)
+{
+	VS_BOUNDINGBOX_OUTPUT output;
+	output.position = mul(float4(input.position, 1.0f), gmtxGameObject);
+	output.position = mul(output.position, gmtxView);
+	output.position = mul(output.position, gmtxProjection);
+	return(output);
+}
+
+float4 PSBoundingBox(VS_BOUNDINGBOX_OUTPUT input) : SV_TARGET
+{
+	return(gMaterial.m_cDiffuse);
+}

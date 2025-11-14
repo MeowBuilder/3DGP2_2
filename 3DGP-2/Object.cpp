@@ -8,6 +8,8 @@
 #include "Scene.h"
 #include <vector>
 
+class CBoundingBoxShader;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 CTexture::CTexture(int nTextures, UINT nTextureType, int nSamplers, int nRootParameters)
@@ -552,6 +554,9 @@ void CGameObject::UpdateBoundingBox()
     if (!allPoints.empty())
     {
         BoundingOrientedBox::CreateFromPoints(m_xmOOBB, allPoints.size(), allPoints.data(), sizeof(XMFLOAT3));
+		m_xmOOBB.Extents.x *= 0.8f;
+		m_xmOOBB.Extents.y *= 0.8f;
+		m_xmOOBB.Extents.z *= 0.8f;
     }
     else
     {
@@ -1084,5 +1089,24 @@ CHeightMapTerrain::CHeightMapTerrain(ID3D12Device* pd3dDevice, ID3D12GraphicsCom
 CHeightMapTerrain::~CHeightMapTerrain(void)
 {
 	if (m_pHeightMapImage) delete m_pHeightMapImage;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+CBoundingBoxObject::CBoundingBoxObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature) : CGameObject(1, 1)
+{
+	CBoundingBoxMesh* pBoundingBoxMesh = new CBoundingBoxMesh(pd3dDevice, pd3dCommandList);
+	SetMesh(0, pBoundingBoxMesh);
+
+	CMaterial* pMaterial = new CMaterial();
+	pMaterial->SetAlbedoColor(XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
+	CShader* pShader = new CBoundingBoxShader();
+	pShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	pMaterial->SetShader(pShader);
+	SetMaterial(0, pMaterial);
+}
+
+CBoundingBoxObject::~CBoundingBoxObject()
+{
 }
 
