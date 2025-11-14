@@ -207,24 +207,25 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_nShaders = 2;
 	m_ppShaders = new CShader*[m_nShaders];
 
-	CObjectsShader* pObjectsShader = new CObjectsShader();
-	pObjectsShader->AddRef();
-	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
-	m_ppShaders[0] = pObjectsShader;
-
-
-	XMFLOAT3 xmf3Scale(18.0f, 6.0f, 18.0f);
-	XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
-	m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
-
-	m_pPlayer = new CTerrainPlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
-
-	CUIShader* pUIShader = new CUIShader();
-	pUIShader->AddRef();
-	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
-	m_ppShaders[1] = pUIShader;
-
+		CObjectsShader* pObjectsShader = new CObjectsShader();
+		pObjectsShader->AddRef();
+		pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+		m_ppShaders[0] = pObjectsShader;
+	
+		XMFLOAT3 xmf3Scale(18.0f, 6.0f, 18.0f);
+		XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
+		m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
+	
+		pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
+		m_nGameObjects = pObjectsShader->GetNumberOfObjects();
+		m_ppGameObjects = pObjectsShader->GetPpObjects();
+	
+		m_pPlayer = new CTerrainPlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
+	
+		CUIShader* pUIShader = new CUIShader();
+		pUIShader->AddRef();
+		pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
+		m_ppShaders[1] = pUIShader;
 
 	// Create ScreenQuadMesh for background
 	m_pBackgroundObject = new CGameObject(1, 1);
@@ -318,12 +319,6 @@ void CScene::ReleaseObjects()
 
 	if (m_pTerrain) delete m_pTerrain;
 	// if (m_pSkyBox) delete m_pSkyBox; // Removed SkyBox release
-
-	if (m_ppGameObjects)
-	{
-		for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Release();
-		delete[] m_ppGameObjects;
-	}
 
 	if (m_pLights) delete[] m_pLights;
 
@@ -534,7 +529,6 @@ void CScene::ReleaseUploadBuffers()
 	// if (m_pSkyBox) m_pSkyBox->ReleaseUploadBuffers(); // Removed SkyBox related call
 
 	for (int i = 0; i < m_nShaders; i++) m_ppShaders[i]->ReleaseUploadBuffers();
-	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseUploadBuffers();
 }
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
@@ -574,7 +568,6 @@ bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 void CScene::AnimateObjects(float fTimeElapsed)
 {
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Animate(fTimeElapsed, NULL);
-	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->UpdateTransform(NULL);
 
 	for (int i = 0; i < m_nShaders; i++) if (m_ppShaders[i]) m_ppShaders[i]->AnimateObjects(fTimeElapsed);
 	
@@ -585,7 +578,32 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	}
 
 	UpdateUIButtons(fTimeElapsed); // Call UpdateUIButtons
+
+	CheckCollisions();
 }
+
+void CScene::CheckCollisions()
+{
+	if (!m_pPlayer || !m_ppGameObjects) return;
+
+	BoundingOrientedBox playerOOBB = m_pPlayer->GetOOBB();
+
+	for (int i = 0; i < m_nGameObjects; i++)
+	{
+		if (m_ppGameObjects[i] && m_ppGameObjects[i]->IsActive())
+		{
+			BoundingOrientedBox objectOOBB = m_ppGameObjects[i]->GetOOBB();
+			if (playerOOBB.Intersects(objectOOBB))
+			{
+				m_ppGameObjects[i]->SetActive(false);
+				m_pPlayer->m_xmf4x4World = m_pPlayer->m_xmf4x4LastWorld;
+				m_pPlayer->SetPosition(m_pPlayer->GetPosition());
+				break; 
+			}
+		}
+	}
+}
+
 
 void CScene::UpdateUIButtons(float fTimeElapsed)
 {
@@ -664,8 +682,6 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 		// if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera); // Removed SkyBox rendering
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 
-		for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Render(pd3dCommandList, pCamera);
-		
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 	}
 }

@@ -400,60 +400,47 @@ XMFLOAT3 RandomPositionInSphere(XMFLOAT3 xmf3Center, float fRadius, int nColumn,
 
 void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, void *pContext)
 {
+	CHeightMapTerrain* pTerrain = (CHeightMapTerrain*)pContext;
+
 	m_ppObjects = new CGameObject*[m_nObjects];
 
 	CGameObject *pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
 	CGameObject* pGunshipModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/Gunship.bin", this);
 
-	int nColumnSpace = 5, nColumnSize = 30;           
-    int nFirstPassColumnSize = (m_nObjects % nColumnSize) > 0 ? (nColumnSize - 1) : nColumnSize;
-
-	int nObjects = 0;
-    for (int h = 0; h < nFirstPassColumnSize; h++)
-    {
-        for (int i = 0; i < floor(float(m_nObjects) / float(nColumnSize)); i++)
-        {
-			if (nObjects % 2)
-			{
-				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
-				pSuperCobraModel->AddRef();
-			}
-			else
-			{
-				m_ppObjects[nObjects] = new CGunshipObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pGunshipModel);
-				pGunshipModel->AddRef();
-			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
-			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 750.0f, xmf3RandomPosition.z);
-			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
-			m_ppObjects[nObjects++]->PrepareAnimate();
+	for (int i = 0; i < m_nObjects; i++)
+	{
+		if (i % 2)
+		{
+			m_ppObjects[i] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+			m_ppObjects[i]->SetChild(pSuperCobraModel);
+			pSuperCobraModel->AddRef();
 		}
-    }
+		else
+		{
+			m_ppObjects[i] = new CGunshipObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+			m_ppObjects[i]->SetChild(pGunshipModel);
+			pGunshipModel->AddRef();
+		}
 
-    if (nFirstPassColumnSize != nColumnSize)
-    {
-        for (int i = 0; i < m_nObjects - int(floor(float(m_nObjects) / float(nColumnSize)) * nFirstPassColumnSize); i++)
-        {
-			if (nObjects % 2)
-			{
-				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
-				pSuperCobraModel->AddRef();
-			}
-			else
-			{
-				m_ppObjects[nObjects] = new CGunshipObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pGunshipModel);
-				pGunshipModel->AddRef();
-			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), nColumnSize - int(floor(nColumnSize / 2.0f)), nColumnSpace);
-			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 850.0f, xmf3RandomPosition.z);
-			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
-			m_ppObjects[nObjects++]->PrepareAnimate();
-        }
-    }
+		if (pTerrain)
+		{
+			float terrainWidth = pTerrain->GetWidth();
+			float terrainLength = pTerrain->GetLength();
+
+			float randomX = ((float)rand() / RAND_MAX) * terrainWidth - (terrainWidth * 0.5f);
+			float randomZ = ((float)rand() / RAND_MAX) * terrainLength - (terrainLength * 0.5f);
+			float height = pTerrain->GetHeight(randomX, randomZ);
+
+			m_ppObjects[i]->SetPosition(randomX, height + 5.0f, randomZ);
+		}
+		else
+		{
+			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), i, 5);
+			m_ppObjects[i]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 750.0f, xmf3RandomPosition.z);
+		}
+		m_ppObjects[i]->Rotate(0.0f, 90.0f, 0.0f);
+		m_ppObjects[i]->PrepareAnimate();
+	}
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }

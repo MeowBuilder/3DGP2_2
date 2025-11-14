@@ -52,6 +52,8 @@ protected:
 
 	XMFLOAT3						*m_pxmf3Positions = NULL;
 
+	BoundingOrientedBox				m_xmOOBB;
+
 	ID3D12Resource					*m_pd3dPositionBuffer = NULL;
 	ID3D12Resource					*m_pd3dPositionUploadBuffer = NULL;
 	D3D12_VERTEX_BUFFER_VIEW		m_d3dPositionBufferView;
@@ -66,6 +68,11 @@ protected:
 
 public:
 	UINT GetType() { return(m_nType); }
+
+	int GetVertexCount() { return(m_nVertices); }
+	XMFLOAT3 *GetVertices() { return(m_pxmf3Positions); }
+
+	BoundingOrientedBox& GetOOBB() { return m_xmOOBB; }
 
 	virtual void ReleaseUploadBuffers();
 	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, int nSubSet);

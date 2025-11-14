@@ -169,6 +169,7 @@ public:
 	virtual ~CGameObject();
 
 public:
+	bool							m_bIsActive = true;
 	char							m_pstrFrameName[64];
 
 	int								m_nMeshes = 0;
@@ -179,10 +180,17 @@ public:
 
 	XMFLOAT4X4						m_xmf4x4Transform;
 	XMFLOAT4X4						m_xmf4x4World;
+	XMFLOAT4X4						m_xmf4x4LastWorld;
+
+	BoundingOrientedBox				m_xmOOBB; // This will be the world-space OBB
 
 	CGameObject 					*m_pParent = NULL;
 	CGameObject 					*m_pChild = NULL;
 	CGameObject 					*m_pSibling = NULL;
+
+	BoundingOrientedBox& GetOOBB() { return m_xmOOBB; }
+	bool IsActive() { return m_bIsActive; }
+	void SetActive(bool bActive) { m_bIsActive = bActive; }
 
 	virtual void SetMesh(int nIndex, CMesh* pMesh);
 	virtual CMesh* GetMesh(int nIndex) const { return m_ppMeshes[nIndex]; }
@@ -229,6 +237,7 @@ public:
 
 	CGameObject *GetParent() { return(m_pParent); }
 	void UpdateTransform(XMFLOAT4X4 *pxmf4x4Parent=NULL);
+	void UpdateBoundingBox();
 	CGameObject *FindFrame(char *pstrFrameName);
 
 	int FindReplicatedTexture(_TCHAR* pstrTextureName, D3D12_GPU_DESCRIPTOR_HANDLE* pd3dSrvGpuDescriptorHandle);

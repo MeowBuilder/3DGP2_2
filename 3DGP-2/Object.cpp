@@ -6,6 +6,7 @@
 #include "Object.h"
 #include "Shader.h"
 #include "Scene.h"
+#include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -297,6 +298,8 @@ CGameObject::CGameObject()
 {
 	m_xmf4x4Transform = Matrix4x4::Identity();
 	m_xmf4x4World = Matrix4x4::Identity();
+	m_xmf4x4LastWorld = Matrix4x4::Identity();
+	m_xmOOBB = BoundingOrientedBox(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
 }
 
 CGameObject::CGameObject(int nMeshes, int nMaterials) : CGameObject()
@@ -401,8 +404,14 @@ void CGameObject::SetMaterial(int nMaterial, CMaterial *pMaterial)
 
 void CGameObject::Animate(float fTimeElapsed, XMFLOAT4X4 *pxmf4x4Parent)
 {
+	m_xmf4x4LastWorld = m_xmf4x4World;
+
+	UpdateTransform(pxmf4x4Parent);
+
 	if (m_pSibling) m_pSibling->Animate(fTimeElapsed, pxmf4x4Parent);
 	if (m_pChild) m_pChild->Animate(fTimeElapsed, &m_xmf4x4World);
+
+	UpdateBoundingBox();
 }
 
 CGameObject *CGameObject::FindFrame(char *pstrFrameName)
@@ -418,6 +427,8 @@ CGameObject *CGameObject::FindFrame(char *pstrFrameName)
 
 void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
+    if (!m_bIsActive) return;
+
 	OnPrepareRender();
 
 	if (pCamera) UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
@@ -504,6 +515,48 @@ void CGameObject::UpdateTransform(XMFLOAT4X4 *pxmf4x4Parent)
 
 	if (m_pSibling) m_pSibling->UpdateTransform(pxmf4x4Parent);
 	if (m_pChild) m_pChild->UpdateTransform(&m_xmf4x4World);
+}
+
+void CGameObject::UpdateBoundingBox()
+{
+    std::vector<XMFLOAT3> allPoints;
+    allPoints.reserve(16); 
+
+    for (int i = 0; i < m_nMeshes; ++i)
+    {
+        if (m_ppMeshes[i])
+        {
+            BoundingOrientedBox localMeshOOBB = m_ppMeshes[i]->GetOOBB();
+            BoundingOrientedBox worldMeshOOBB;
+            localMeshOOBB.Transform(worldMeshOOBB, XMLoadFloat4x4(&m_xmf4x4World));
+
+            XMFLOAT3 corners[8];
+            worldMeshOOBB.GetCorners(corners);
+            allPoints.insert(allPoints.end(), corners, corners + 8);
+        }
+    }
+
+    CGameObject* pChild = m_pChild;
+    while (pChild)
+    {
+        if (pChild->IsActive())
+        {
+            BoundingOrientedBox& childOOBB = pChild->GetOOBB();
+            XMFLOAT3 corners[8];
+            childOOBB.GetCorners(corners);
+            allPoints.insert(allPoints.end(), corners, corners + 8);
+        }
+        pChild = pChild->m_pSibling;
+    }
+
+    if (!allPoints.empty())
+    {
+        BoundingOrientedBox::CreateFromPoints(m_xmOOBB, allPoints.size(), allPoints.data(), sizeof(XMFLOAT3));
+    }
+    else
+    {
+        m_xmOOBB = BoundingOrientedBox(GetPosition(), XMFLOAT3(0.1f, 0.1f, 0.1f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
+    }
 }
 
 void CGameObject::SetPosition(float x, float y, float z)

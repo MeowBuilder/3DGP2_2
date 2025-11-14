@@ -150,6 +150,8 @@ void CPlayer::Rotate(float x, float y, float z)
 
 void CPlayer::Update(float fTimeElapsed)
 {
+	m_xmf4x4LastWorld = m_xmf4x4World;
+
 	m_xmf3Velocity = Vector3::Add(m_xmf3Velocity, m_xmf3Gravity);
 	float fLength = sqrtf(m_xmf3Velocity.x * m_xmf3Velocity.x + m_xmf3Velocity.z * m_xmf3Velocity.z);
 	float fMaxVelocityXZ = m_fMaxVelocityXZ;
