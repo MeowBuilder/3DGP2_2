@@ -1,29 +1,100 @@
-### [TerrainPlayer.txt 내용 통합]
+## Other 폴더 프로젝트 분석 요약
 
-TerrainPlayer가 Terrain과 상호작용하는 메커니즘 요약:
+### 1. 기하 셰이더를 이용한 빌보드 사각형 구현
 
-1.  **지형 데이터 소스:**
-    *   지형 높이 정보는 `Image/HeightMap.raw`와 같은 원시 높이 맵 파일에 저장됩니다.
-    *   이 파일은 `CHeightMapImage` 객체로 로드되며, 이 객체는 지형의 스케일(`m_xmf3Scale`)도 함께 관리합니다.
+**개요:**
+`Other` 프로젝트는 기하 셰이더를 사용하여 3D 공간의 단일 점을 항상 카메라를 바라보는 2D 사각형(빌보드)으로 확장하는 방식으로 빌보드를 구현합니다. 이는 파티클 효과, 나무, 풀 등 항상 카메라를 향해야 하는 객체에 유용합니다.
 
-2.  **플레이어 초기화:**
-    *   `CTerrainPlayer`는 `CHeightMapTerrain` 객체(실제로는 `pContext`로 전달된 `CHeightMapImage` 객체)에 대한 포인터로 초기화됩니다.
+**주요 파일:**
+*   `BillboardObject.h`, `BillboardObject.cpp`: 빌보드 객체의 C++ 측 관리 (위치, 메시, 재질).
+*   `BillboardShader.h`, `BillboardShader.cpp`: 빌보드 렌더링을 위한 특수 셰이더 클래스.
+*   `Shaders.hlsl`: 빌보드 렌더링에 사용되는 HLSL 셰이더 코드 (`VSBillboard`, `GSBillboard`, `PSBillboard`).
 
-3.  **플레이어 높이 조정 (`CTerrainPlayer::OnPlayerUpdateCallback`):**
-    *   매 업데이트 프레임마다 플레이어의 현재 월드 XZ 좌표가 사용됩니다.
-    *   이 월드 좌표는 지형의 X 및 Z 스케일로 나누어 높이 맵 이미지 좌표로 변환됩니다.
-    *   `CHeightMapImage::GetHeight` 메서드가 이 좌표와 함께 호출됩니다. 이 메서드는 원시 높이 맵 데이터에 대해 이중 선형 보간을 수행하여 플레이어의 정확한 XZ 위치에서 지형 높이를 정확하게 결정합니다.
-    *   보간된 지형 높이에 고정 오프셋(6.0f)이 추가되어 플레이어의 원하는 Y-위치가 결정됩니다.
-    *   만약 플레이어의 현재 Y-위치가 이 원하는 높이보다 낮으면, 플레이어의 수직 속도(`y` velocity)는 0으로 설정되고, Y-위치는 원하는 높이로 스냅됩니다. 이는 플레이어가 지형을 통과하는 것을 방지하고 지형 표면 위를 걷는 것을 시뮬레이션합니다.
+**핵심 클래스 및 구조:**
+*   `CBillboardObject`: `CGameObject`를 상속받으며, `CPointMesh`를 사용하여 단일 점을 표현합니다. `CBillboardShader`와 `CTexture`를 재질로 사용합니다.
+*   `CBillboardShader`: `CShader`를 상속받아 빌보드 렌더링 파이프라인을 설정합니다. 특히 기하 셰이더를 사용하도록 오버라이드합니다.
 
-4.  **카메라 높이 조정 (`CTerrainPlayer::OnCameraUpdateCallback`):**
-    *   플레이어와 유사하게 카메라의 높이도 지형 위에 있도록 조정됩니다.
-    *   `CHeightMapImage::GetHeight`를 사용하여 카메라의 XZ 좌표에서 지형 높이를 얻고, 플레이어와는 약간 다른 오프셋(5.0f)을 추가합니다.
-    *   카메라의 Y-위치가 계산된 높이보다 낮거나 같으면, 카메라의 Y-위치는 해당 높이로 조정됩니다. 이는 카메라가 지형을 통과하지 않도록 합니다.
-    *   `THIRD_PERSON_CAMERA` 모드에서는 카메라가 플레이어를 바라보도록 `SetLookAt` 함수가 호출됩니다.
+**셰이더 사용 및 기술:**
+*   **Vertex Shader (`VSBillboard`)**: 입력된 단일 점의 월드 공간 위치를 변환 없이 기하 셰이더로 전달합니다.
+*   **Geometry Shader (`GSBillboard`)**:
+    *   입력으로 단일 점을 받습니다.
+    *   `gmtxInverseView` (역뷰 행렬)에서 카메라의 `Up` 및 `Right` 벡터를 추출하여 빌보드가 항상 카메라를 바라보도록 방향을 결정합니다.
+    *   입력 점을 중심으로 하는 4개의 정점(쿼드)을 생성하고, 이 정점들에 표준 UV 좌표를 할당합니다.
+    *   생성된 쿼드 정점들을 월드 -> 뷰 -> 투영 공간으로 변환하여 출력 스트림에 추가합니다.
+    *   `[maxvertexcount(4)]`를 사용하여 최대 4개의 정점을 출력하도록 선언합니다.
+*   **Pixel Shader (`PSBillboard`)**: `gtxtBillboard` 텍스처를 샘플링하고, `clip(color.a - 0.1f)`를 사용하여 알파 테스트를 수행하여 투명한 부분을 버립니다.
+*   **PSO 설정**:
+    *   `D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT`: 입력 프리미티브 토폴로지를 점으로 설정합니다.
+    *   `CullMode = D3D12_CULL_MODE_NONE`: 양면 렌더링을 위해 컬링을 비활성화합니다.
+    *   알파 블렌딩 활성화 (`D3D12_BLEND_SRC_ALPHA`, `D3D12_BLEND_INV_SRC_ALPHA`).
+    *   깊이 쓰기 비활성화 (`D3D12_DEPTH_WRITE_MASK_ZERO`).
 
-5.  **중력과의 상호작용:**
-    *   플레이어에게는 중력이 적용되어 자연스럽게 아래로 떨어지게 됩니다.
-    *   그러나 `OnPlayerUpdateCallback`은 플레이어가 지면에 있을 때 플레이어의 높이를 지형에 지속적으로 조정함으로써 중력에 효과적으로 대응하는 "바닥" 역할을 합니다.
+**종속성:**
+`CPointMesh`, `CShader`, `CTexture`, `CCamera` (뷰/투영 행렬 및 역뷰 행렬).
 
-이러한 메커니즘을 통해 플레이어(및 카메라)는 동적으로 계산된 지형 표면 위에서 항상 고정된 높이를 유지하며, 지형 위를 걷는 듯한 사실적인 경험을 제공합니다.
+---
+
+### 2. 물 오브젝트 구현
+
+**개요:**
+`Other` 프로젝트의 물 오브젝트는 텍스처 애니메이션과 여러 텍스처 샘플링을 통해 움직이는 듯한 물 표면을 표현합니다. 투명도와 디테일 텍스처를 사용하여 사실감을 더합니다.
+
+**주요 파일:**
+*   `WaterObject.h`, `WaterObject.cpp`: 물 객체의 C++ 측 관리 (메시, 텍스처, 재질).
+*   `WaterShader.h`, `WaterShader.cpp`: 물 렌더링을 위한 특수 셰이더 클래스.
+*   `Shaders.hlsl`: 물 렌더링에 사용되는 HLSL 셰이더 코드 (`VSTerrainWater`, `PSTerrainWater`).
+
+**핵심 클래스 및 구조:**
+*   `CWaterObject`: `CGameObject`를 상속받으며, `CTexturedRectMesh`를 사용하여 평평한 사각형 메시를 생성합니다. `Water_Base_Texture_0.dds`, `Water_Detail_Texture_0.dds`, `WaveFoam.dds` 세 가지 텍스처를 로드하고 `CWaterShader`를 재질로 사용합니다.
+*   `CWaterShader`: `CShader`를 상속받아 물 렌더링 파이프라인을 설정합니다.
+
+**셰이더 사용 및 기술:**
+*   **Vertex Shader (`VSTerrainWater`)**: 정점 위치를 모델 -> 월드 -> 뷰 -> 투영 공간으로 변환하고 UV 좌표를 픽셀 셰이더로 전달합니다.
+*   **Pixel Shader (`PSTerrainWater`)**:
+    *   `cbWaterInfo`의 `gf4x4TextureAnimation` 행렬을 사용하여 UV 좌표에 텍스처 애니메이션을 적용, 물이 흐르는 듯한 효과를 줍니다.
+    *   `gtxtWaterBaseTexture`, `gtxtWaterDetail0Texture`, `gtxtWaterDetail1Texture` 세 가지 텍스처를 샘플링합니다. 디테일 텍스처는 `uv * 20.0f`로 샘플링하여 타일링 효과를 줍니다.
+    *   샘플링된 색상들을 `lerp` 함수로 혼합하여 최종 물 색상을 결정합니다.
+*   **PSO 설정**:
+    *   `D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE`: 입력 프리미티브 토폴로지를 삼각형으로 설정합니다.
+    *   `CullMode = D3D12_CULL_MODE_NONE`: 양면 렌더링을 위해 컬링을 비활성화합니다.
+    *   알파 블렌딩 활성화 (`D3D12_BLEND_SRC_ALPHA`, `D3D12_BLEND_INV_SRC_ALPHA`).
+    *   깊이 쓰기 비활성화 (`D3D12_DEPTH_WRITE_MASK_ZERO`).
+
+**종속성:**
+`CTexturedRectMesh`, `CShader`, `CTexture`, `CCamera` (뷰/투영 행렬).
+
+---
+
+### 3. 폭발 이펙트 구현
+
+**개요:**
+폭발 이펙트는 기하 셰이더 기반 빌보드와 스프라이트 시트 애니메이션, 객체 풀링을 결합하여 효율적이고 시각적으로 풍부한 효과를 제공합니다. 총알 충돌 시 동적으로 생성됩니다.
+
+**주요 파일:**
+*   `ExplosionEffect_Implementation.txt`: 폭발 이펙트 구현에 대한 상세 문서.
+*   `Shaders.hlsl`: 폭발 렌더링에 사용되는 HLSL 셰이더 코드 (`VS_Explosion`, `GS_Explosion`, `PS_Explosion`).
+*   (개념적) `CExplosionObject`, `CExplosionShader`: 폭발 객체 관리 및 렌더링을 위한 C++ 클래스.
+
+**핵심 클래스 및 구조:**
+*   `CExplosionObject` (개념적): 폭발의 생명 주기, 현재 애니메이션 프레임을 관리합니다. `m_nCurrentFrame` 값을 `CMaterial::m_nType`을 통해 셰이더로 전달합니다.
+*   `CExplosionShader` (개념적): 폭발 렌더링을 위한 특수 셰이더 클래스.
+*   `CScene` (개념적): `CPointMesh`, `CExplosionShader`, `CMaterial` (스프라이트 시트 텍스처 `Image/Effect.dds` 포함)과 같은 공유 리소스를 생성하고, 50개의 `CExplosionObject`를 미리 생성하여 객체 풀링을 구현합니다. `SpawnExplosion` 함수를 통해 폭발을 활성화합니다.
+
+**셰이더 사용 및 기술:**
+*   **Vertex Shader (`VS_Explosion`)**: 입력된 점의 월드 위치를 변환하고, `gnTexturesMask` (프레임 인덱스)를 기하 셰이더로 전달합니다.
+*   **Geometry Shader (`GS_Explosion`)**:
+    *   입력으로 단일 점을 받습니다.
+    *   카메라의 `Right` 및 `Up` 벡터를 사용하여 카메라를 바라보는 사각형(쿼드)을 생성합니다.
+    *   생성된 쿼드 정점들을 월드 -> 뷰 -> 투영 공간으로 변환하고, 표준 UV 좌표와 프레임 인덱스를 픽셀 셰이더로 전달합니다.
+*   **Pixel Shader (`PS_Explosion`)**:
+    *   입력된 프레임 인덱스를 사용하여 8x8 스프라이트 시트(`Image/Effect.dds`)에서 현재 프레임에 해당하는 UV 영역을 계산합니다.
+    *   계산된 UV로 `gtxtAlbedoTexture` (폭발 스프라이트 시트)를 샘플링합니다.
+    *   `clip(color.a - 0.01f)`를 사용하여 알파 테스트를 수행하여 투명한 부분을 버립니다.
+*   **PSO 설정**:
+    *   `D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT`: 입력 프리미티브 토폴로지를 점으로 설정합니다.
+    *   가산 블렌딩 (Additive Blending)을 사용하여 폭발의 밝고 빛나는 효과를 표현합니다.
+    *   깊이 쓰기 비활성화 (`D3D12_DEPTH_WRITE_MASK_ZERO`).
+
+**종속성:**
+`CPointMesh`, `CShader`, `CTexture` (스프라이트 시트), `CCamera` (뷰 행렬), `CGameObject` (기본 객체 관리).
+객체 풀링을 위한 `std::vector` 및 충돌 감지 로직.
