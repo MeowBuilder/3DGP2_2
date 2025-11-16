@@ -10,7 +10,8 @@ cbuffer cbCameraInfo : register(b1)
 {
 	matrix					gmtxView : packoffset(c0);
 	matrix					gmtxProjection : packoffset(c4);
-	float3					gvCameraPosition : packoffset(c8);
+	matrix					gmtxInverseView : packoffset(c8);
+	float3					gvCameraPosition : packoffset(c12);
 };
 
 cbuffer cbGameObjectInfo : register(b2)
@@ -18,6 +19,26 @@ cbuffer cbGameObjectInfo : register(b2)
 	matrix					gmtxGameObject : packoffset(c0);
 	MATERIAL				gMaterial : packoffset(c4);
 	uint					gnTexturesMask : packoffset(c8);
+};
+
+cbuffer cbWaterInfo : register(b3)
+{
+	matrix		gf4x4TextureAnimation : packoffset(c0);
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Water Shaders
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct VS_WATER_INPUT
+{
+	float3 position : POSITION;
+	float2 uv : TEXCOORD0;
+};
+
+struct VS_WATER_OUTPUT
+{
+	float4 position : SV_POSITION;
+	float2 uv : TEXCOORD0;
 };
 
 #include "Light.hlsl"
@@ -34,15 +55,53 @@ cbuffer cbGameObjectInfo : register(b2)
 #define MATERIAL_DETAIL_ALBEDO_MAP	0x20
 #define MATERIAL_DETAIL_NORMAL_MAP	0x40
 
-Texture2D gtxtAlbedoTexture : register(t6);
-Texture2D gtxtSpecularTexture : register(t7);
-Texture2D gtxtNormalTexture : register(t8);
-Texture2D gtxtMetallicTexture : register(t9);
-Texture2D gtxtEmissionTexture : register(t10);
-Texture2D gtxtDetailAlbedoTexture : register(t11);
-Texture2D gtxtDetailNormalTexture : register(t12);
+Texture2D gtxtAlbedoTexture : register(t24);
+Texture2D gtxtSpecularTexture : register(t25);
+Texture2D gtxtNormalTexture : register(t26);
+Texture2D gtxtMetallicTexture : register(t27);
+Texture2D gtxtEmissionTexture : register(t28);
+Texture2D gtxtDetailAlbedoTexture : register(t29);
+Texture2D gtxtDetailNormalTexture : register(t30);
+
+Texture2D gtxtWaterBaseTexture : register(t6);
+Texture2D gtxtWaterDetail0Texture : register(t7);
+Texture2D gtxtWaterDetail1Texture : register(t8);
 
 SamplerState gssWrap : register(s0);
+SamplerState gssClamp : register(s1);
+VS_WATER_OUTPUT VSTerrainWater(VS_WATER_INPUT input)
+{
+    VS_WATER_OUTPUT output;
+
+    // Transform position from model space to world space
+    float4 worldPos = mul(float4(input.position, 1.0f), gmtxGameObject);
+    
+    // Transform position from world space to view space, then to projection space
+    output.position = mul(mul(worldPos, gmtxView), gmtxProjection);
+    
+    // Pass UVs directly to pixel shader
+    output.uv = input.uv;
+
+    return output;
+}
+
+float4 PSTerrainWater(VS_WATER_OUTPUT input) : SV_TARGET
+{
+	float2 uv = input.uv;
+
+	// 텍스처 애니메이션 매트릭스 적용
+	uv = mul(float3(input.uv, 1.0f), (float3x3)gf4x4TextureAnimation).xy;
+
+	// 텍스처 샘플링 (Detail 텍스처는 20배 타일링)
+	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0);
+	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
+	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
+
+	// 최종 색상 조합
+	float4 cColor = lerp(cBaseTexColor * cDetail0TexColor, cDetail1TexColor.r * 0.5f, 0.35f);
+	//cColor.a = 1.0f;
+	return(cColor);
+}
 
 struct VS_STANDARD_INPUT
 {
@@ -65,20 +124,35 @@ struct VS_STANDARD_OUTPUT
 
 VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 {
-	VS_STANDARD_OUTPUT output;
+    VS_STANDARD_OUTPUT output;
 
-	output.positionW = (float3)mul(float4(input.position, 1.0f), gmtxGameObject);
-	output.normalW = mul(input.normal, (float3x3)gmtxGameObject);
-	output.tangentW = (float3)mul(float4(input.tangent, 1.0f), gmtxGameObject);
-	output.bitangentW = (float3)mul(float4(input.bitangent, 1.0f), gmtxGameObject);
-	output.position = mul(mul(float4(output.positionW, 1.0f), gmtxView), gmtxProjection);
-	output.uv = input.uv;
+    // 위치(점) -> w=1
+    float4 posW = mul(float4(input.position, 1.0f), gmtxGameObject);
+    output.positionW = posW.xyz;
 
-	return(output);
+    // 방향 벡터 -> w=0  (평행이동 제외!)
+    output.tangentW   = normalize(mul((float3x3)gmtxGameObject, input.tangent));
+    output.bitangentW = normalize(mul((float3x3)gmtxGameObject, input.bitangent));
+    output.normalW    = normalize(mul((float3x3)gmtxGameObject, input.normal)); // 임시
+
+    // TBN을 직교화(특히 tangent)
+    float3 N = output.normalW;
+    float3 T = normalize(output.tangentW - N * dot(output.tangentW, N));
+    float3 B = normalize(cross(N, T));   // 입력 bitangent 대신 cross로 재구성(더 안정적)
+
+    // 저장할 땐 직교화된 걸 저장
+    output.tangentW   = T;
+    output.bitangentW = B;
+    output.normalW    = N;
+
+    output.position = mul(mul(posW, gmtxView), gmtxProjection);
+    output.uv = input.uv;
+    return output;
 }
 
 float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
+
 	float4 cAlbedoColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cSpecularColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cNormalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -94,16 +168,23 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 	float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
 	float4 cColor = cAlbedoColor + cSpecularColor + cEmissionColor;
 	if (gnTexturesMask & MATERIAL_NORMAL_MAP)
-	{
-		float3 normalW = input.normalW;
-		float3x3 TBN = float3x3(normalize(input.tangentW), normalize(input.bitangentW), normalize(input.normalW));
-		float3 vNormal = normalize(cNormalColor.rgb * 2.0f - 1.0f); //[0, 1] �� [-1, 1]
-		normalW = normalize(mul(vNormal, TBN));
-		cIllumination = Lighting(input.positionW, normalW);
-		cColor = lerp(cColor, cIllumination, 0.5f);
-	}
+    {
+        float3x3 TBN = float3x3(input.tangentW, input.bitangentW, input.normalW);
+        float3 vNormalTS = normalize(cNormalColor.rgb * 2.0f - 1.0f);
+        float3 normalW = normalize(mul(vNormalTS, TBN));
+        float4 cIllumination = Lighting(input.positionW, normalW);
+        cColor = lerp(cColor, cIllumination, 0.5f);
+    }
+    return cColor;
+}
 
-	return(cColor);
+float4 PSStandardPlayer(VS_STANDARD_OUTPUT input) : SV_TARGET
+{
+	float4 c = PSStandard(input); // 기존 로직 재사용(함수로 빼는 게 더 좋음)
+	
+    c.a = 0.3f;
+	
+	return c;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +211,7 @@ VS_SKYBOX_CUBEMAP_OUTPUT VSSkyBox(VS_SKYBOX_CUBEMAP_INPUT input)
 }
 
 TextureCube gtxtSkyCubeTexture : register(t13);
-SamplerState gssClamp : register(s1);
+
 
 float4 PSSkyBox(VS_SKYBOX_CUBEMAP_OUTPUT input) : SV_TARGET
 {
@@ -190,6 +271,7 @@ float4 PSTextured(VS_SPRITE_TEXTURED_OUTPUT input, uint nPrimitiveID : SV_Primit
 Texture2D gtxtTerrainTexture : register(t14);
 Texture2D gtxtDetailTexture : register(t15);
 Texture2D gtxtAlphaTexture : register(t16);
+Texture2D gtxtAlphaTextures[] : register(t23);
 
 float4 PSTextured(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 {
@@ -262,29 +344,198 @@ float4 PS_UI(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 	return gtxtUITexture.Sample(gssWrap, input.uv);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Bounding Box Shaders
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-struct VS_BOUNDINGBOX_INPUT
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// Billboard Shaders
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+
+Texture2D gtxtBillboard : register(t17); // 단일 텍스처로 변경
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// VS_INPUT: 애플리케이션에서 정점 하나의 정보를 받습니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+struct VS_BILLBOARD_INPUT
 {
-	float3 position : POSITION;
+	float3 position : POSITION; // 빌보드가 생성될 월드 공간의 위치
 };
 
-struct VS_BOUNDINGBOX_OUTPUT
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// GS_INPUT: Vertex Shader에서 넘어온 정보를 받습니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+struct GS_BILLBOARD_INPUT
 {
-	float4 position : SV_POSITION;
+	float3 position : POSITION; // VS에서 전달된 월드 공간 위치
 };
 
-VS_BOUNDINGBOX_OUTPUT VSBoundingBox(VS_BOUNDINGBOX_INPUT input)
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// PS_INPUT: Geometry Shader에서 생성된 정점 정보를 받습니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+struct PS_BILLBOARD_INPUT
 {
-	VS_BOUNDINGBOX_OUTPUT output;
-	output.position = mul(float4(input.position, 1.0f), gmtxGameObject);
-	output.position = mul(output.position, gmtxView);
-	output.position = mul(output.position, gmtxProjection);
-	return(output);
+	float4 position : SV_POSITION; // 최종 클립 공간 위치
+	float2 uv : TEXCOORD;       // 텍스처 UV 좌표
+};
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// Vertex Shader: 입력된 정점 데이터를 Geometry Shader로 그대로 전달합니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
+{
+	GS_BILLBOARD_INPUT output;
+	output.position = input.position; // 월드 위치를 그대로 전달
+	return output;
 }
 
-float4 PSBoundingBox(VS_BOUNDINGBOX_OUTPUT input) : SV_TARGET
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// Geometry Shader: 정점 하나를 입력받아 카메라를 향하는 사각형(Triangle Strip)을 생성합니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+[maxvertexcount(4)]
+void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
-	return(gMaterial.m_cDiffuse);
+    // 빌보드의 크기 (가로, 세로)
+	float2 size = float2(4.0f, 4.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
+
+    // 카메라의 Up 벡터와 Right 벡터를 뷰 역행렬에서 추출
+    // gmtxInverseView는 cbCameraInfo에 정의되어 있습니다.
+	float3 up = normalize(gmtxInverseView._21_22_23);
+	float3 right = normalize(gmtxInverseView._11_12_13);
+
+    // 사각형의 네 꼭짓점 위치 계산
+	float3 positions[4];
+	positions[0] = input[0].position + (-right * size.x) + (up * size.y); // Top-Left
+	positions[1] = input[0].position + (right * size.x) + (up * size.y);  // Top-Right
+	positions[2] = input[0].position + (-right * size.x) - (up * size.y); // Bottom-Left
+	positions[3] = input[0].position + (right * size.x) - (up * size.y);  // Bottom-Right
+
+    // UV 좌표
+	float2 uvs[4] =
+	{
+		float2(0.0f, 0.0f),
+		float2(1.0f, 0.0f),
+		float2(0.0f, 1.0f),
+		float2(1.0f, 1.0f)
+	};
+
+	PS_BILLBOARD_INPUT output;
+	
+    // 4개의 정점을 Triangle Strip으로 출력
+	[unroll]
+	for (int i = 0; i < 4; i++)
+	{
+		output.position = float4(positions[i], 1.0f); // 월드 변환이 이미 적용된 꼭지점이므로 gmtxGameObject 곱셈 제거
+		output.position = mul(output.position, gmtxView);
+		output.position = mul(output.position, gmtxProjection);
+		output.uv = uvs[i];
+		outputStream.Append(output);
+	}
+	
+	outputStream.RestartStrip();
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+// Pixel Shader: 텍스처를 샘플링하고 알파값이 낮은 픽셀을 버립니다.
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+float4 PSBillboard(PS_BILLBOARD_INPUT input) : SV_TARGET
+{
+	float4 color = gtxtBillboard.Sample(gssWrap, input.uv); // gssWrap (s0) 샘플러 재사용
+    
+    // 알파 값이 0.1보다 작으면 픽셀을 그리지 않음 (Alpha Test)
+	clip(color.a - 0.1f);
+	
+	return color;
+}
+
+//=================================================================================================================================================
+// EXPLOSION SHADERS
+//=================================================================================================================================================
+
+#define EXP_FRAME_COLS 8
+#define EXP_FRAME_ROWS 8
+
+struct VS_GS_INPUT
+{
+    float3 position : POSITION;
+    uint   frame    : TEXCOORD0; // Frame index
+};
+
+struct GS_PS_INPUT
+{
+    float4 position : SV_POSITION;
+    float2 uv       : TEXCOORD0;
+	uint   frame    : TEXCOORD1;
+};
+
+// Vertex Shader: Pass vertex position and frame index to the Geometry Shader
+VS_GS_INPUT VS_Explosion(float3 position : POSITION)
+{
+    VS_GS_INPUT output;
+    output.position = mul(float4(position, 1.0f), gmtxGameObject).xyz;
+    output.frame = gnTexturesMask; // Re-using gnTexturesMask from cbGameObjectInfo as the frame index
+    return output;
+}
+
+// Geometry Shader: Generate a quad billboard facing the camera from a single point
+[maxvertexcount(4)]
+void GS_Explosion(point VS_GS_INPUT input[1], inout TriangleStream<GS_PS_INPUT> outputStream)
+{
+    float3 up = float3(gmtxView._12, gmtxView._22, gmtxView._32);
+    float3 right = float3(gmtxView._11, gmtxView._21, gmtxView._31);
+
+    float halfSize = 20.0f; // Explosion size
+
+    float4 positions[4];
+    positions[0] = float4(input[0].position + (-right + up) * halfSize, 1.0f);
+    positions[1] = float4(input[0].position + ( right + up) * halfSize, 1.0f);
+    positions[2] = float4(input[0].position + (-right - up) * halfSize, 1.0f);
+    positions[3] = float4(input[0].position + ( right - up) * halfSize, 1.0f);
+
+    GS_PS_INPUT output;
+    
+    output.position = mul(positions[0], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(0.0f, 0.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+    output.position = mul(positions[1], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(1.0f, 0.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+    output.position = mul(positions[2], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(0.0f, 1.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+	output.position = mul(positions[3], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(1.0f, 1.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+	
+	outputStream.RestartStrip();
+}
+
+// Pixel Shader: Calculate the correct UV for the sprite sheet and sample the texture
+float4 PS_Explosion(GS_PS_INPUT input) : SV_TARGET
+{
+    uint frame = input.frame;
+    
+    float fCellW = 1.0f / EXP_FRAME_COLS;
+    float fCellH = 1.0f / EXP_FRAME_ROWS;
+    
+    uint u_idx = frame % EXP_FRAME_COLS;
+    uint v_idx = frame / EXP_FRAME_COLS;
+    
+    float2 startUV = float2(u_idx * fCellW, v_idx * fCellH);
+    
+    float2 finalUV = startUV + input.uv * float2(fCellW, fCellH);
+    
+    float4 color = gtxtAlbedoTexture.Sample(gssWrap, finalUV);
+    
+    // Discard pixel if alpha is too low to prevent square outlines
+    clip(color.a - 0.01f); 
+    
+    return color;
 }

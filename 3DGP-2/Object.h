@@ -6,7 +6,6 @@
 
 #include "Mesh.h"
 #include "Camera.h"
-#include "Shader.h" // Added for CTexturedRectObject
 
 #define DIR_FORWARD					0x01
 #define DIR_BACKWARD				0x02
@@ -16,8 +15,7 @@
 #define DIR_DOWN					0x20
 
 class CShader;
-class CStandardShader; // Already forward declared, but now fully included via Shader.h
-class CGameObject;
+class CStandardShader;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -27,11 +25,14 @@ class CGameObject;
 #define RESOURCE_TEXTURE_CUBE		0x04
 #define RESOURCE_BUFFER				0x05
 
+class CGameObject;
+
 class CTexture
 {
 public:
 	CTexture(int nTextureResources, UINT nResourceType, int nSamplers, int nRootParameters);
 	virtual ~CTexture();
+	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSrvGpuDescriptorHandles = NULL;
 
 private:
 	int								m_nReferences = 0;
@@ -50,18 +51,29 @@ private:
 
 	int								m_nRootParameters = 0;
 	int*							m_pnRootParameterIndices = NULL;
-	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSrvGpuDescriptorHandles = NULL;
 
 	int								m_nSamplers = 0;
 	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSamplerGpuDescriptorHandles = NULL;
 
 public:
 	void AddRef() { m_nReferences++; }
-	void Release() { m_nReferences--; if (m_nReferences < 0) delete this; };
+	void Release() 
+	{ 
+		TCHAR buffer[256];
+		_stprintf_s(buffer, L"CTexture::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
+		OutputDebugString(buffer);
 
-    // 복사 생성자와 복사 할당 연산자를 delete로 선언하여 얕은 복사 방지
-    CTexture(const CTexture&) = delete;
-    CTexture& operator=(const CTexture&) = delete;
+		int nNewReferences = --m_nReferences;
+		_stprintf_s(buffer, L"CTexture::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
+		OutputDebugString(buffer);
+
+		if (nNewReferences <= 0) 
+		{
+			_stprintf_s(buffer, L"CTexture::Release() deleting %p\n", this);
+			OutputDebugString(buffer);
+			delete this; 
+		}
+	}
 
 	void SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuDescriptorHandle);
 
@@ -106,6 +118,8 @@ public:
 #define MATERIAL_DETAIL_ALBEDO_MAP	0x20
 #define MATERIAL_DETAIL_NORMAL_MAP	0x40
 
+class CGameObject;
+
 class CMaterial
 {
 public:
@@ -117,8 +131,23 @@ private:
 
 public:
 	void AddRef() { m_nReferences++; }
-	void Release() { if (--m_nReferences <= 0) delete this; }
+	void Release() 
+	{
+		TCHAR buffer[256];
+		_stprintf_s(buffer, L"CMaterial::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
+		OutputDebugString(buffer);
 
+		int nNewReferences = --m_nReferences;
+		_stprintf_s(buffer, L"CMaterial::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
+		OutputDebugString(buffer);
+
+		if (nNewReferences <= 0) 
+		{
+			_stprintf_s(buffer, L"CMaterial::Release() deleting %p\n", this);
+			OutputDebugString(buffer);
+			delete this; 
+		}
+	}
 public:
 	CShader							*m_pShader = NULL;
 	CTexture*						m_pTexture = NULL;
@@ -128,11 +157,10 @@ public:
 	XMFLOAT4						m_xmf4SpecularColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 	XMFLOAT4						m_xmf4AmbientColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 
-	void SetAlbedoColor(XMFLOAT4 xmf4Color) { m_xmf4AlbedoColor = xmf4Color; }
 	void SetShader(CShader *pShader);
 	void SetMaterialType(UINT nType) { m_nType |= nType; }
 	void SetTexture(CTexture* pTexture);
-	CTexture* GetTexture() { return m_pTexture; } // New getter
+	CTexture* GetTexture() { return m_pTexture; }
 
 	virtual void UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void ReleaseShaderVariables();
@@ -160,18 +188,15 @@ public:
 	void AddRef();
 	void Release();
 
-    // 복사 생성자와 복사 할당 연산자를 delete로 선언하여 얕은 복사 방지
-    CGameObject(const CGameObject&) = delete;
-    CGameObject& operator=(const CGameObject&) = delete;
-
 public:
 	CGameObject();
 	CGameObject(int nMeshes, int nMaterials);
 	virtual ~CGameObject();
 
 public:
-	bool							m_bIsActive = true;
 	char							m_pstrFrameName[64];
+
+	bool							m_bRender;
 
 	int								m_nMeshes = 0;
 	CMesh**							m_ppMeshes = NULL;
@@ -181,20 +206,25 @@ public:
 
 	XMFLOAT4X4						m_xmf4x4Transform;
 	XMFLOAT4X4						m_xmf4x4World;
-	XMFLOAT4X4						m_xmf4x4LastWorld;
 
-	BoundingOrientedBox				m_xmOOBB; // This will be the world-space OBB
+	XMFLOAT3						m_xmf3LocalAABBMin;
+	XMFLOAT3						m_xmf3LocalAABBMax;
+
+	DirectX::BoundingBox			m_WorldAABB;
+
+	void SetLocalAABB(const XMFLOAT3& minPt, const XMFLOAT3& maxPt)
+	{
+		m_xmf3LocalAABBMin = minPt;
+		m_xmf3LocalAABBMax = maxPt;
+	}
+
+	const DirectX::BoundingBox& GetWorldAABB() const { return m_WorldAABB; }
 
 	CGameObject 					*m_pParent = NULL;
 	CGameObject 					*m_pChild = NULL;
 	CGameObject 					*m_pSibling = NULL;
 
-	BoundingOrientedBox& GetOOBB() { return m_xmOOBB; }
-	bool IsActive() { return m_bIsActive; }
-	void SetActive(bool bActive) { m_bIsActive = bActive; }
-
 	virtual void SetMesh(int nIndex, CMesh* pMesh);
-	virtual CMesh* GetMesh(int nIndex) const { return m_ppMeshes[nIndex]; }
 	void SetShader(int nMaterial, CShader *pShader);
 	void SetMaterial(int nMaterial, CMaterial *pMaterial);
 	CMaterial* GetMaterial(int nIndex) { return m_ppMaterials[nIndex]; }
@@ -208,6 +238,7 @@ public:
 
 	virtual void OnPrepareRender() { }
 	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
+	virtual void RenderOBB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pOBBMesh, CMaterial* pOBBMaterial);
 
 	virtual void CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList);
@@ -218,11 +249,10 @@ public:
 
 	virtual void ReleaseUploadBuffers();
 
-	XMFLOAT3 GetPosition() const;
-	XMFLOAT3 GetLook() const;
-	XMFLOAT3 GetUp() const;
-	XMFLOAT3 GetRight() const;
-	XMFLOAT3 GetScale() const;
+	XMFLOAT3 GetPosition();
+	XMFLOAT3 GetLook();
+	XMFLOAT3 GetUp();
+	XMFLOAT3 GetRight();
 
 	void SetPosition(float x, float y, float z);
 	void SetPosition(XMFLOAT3 xmf3Position);
@@ -238,12 +268,12 @@ public:
 
 	CGameObject *GetParent() { return(m_pParent); }
 	void UpdateTransform(XMFLOAT4X4 *pxmf4x4Parent=NULL);
-	void UpdateBoundingBox();
 	CGameObject *FindFrame(char *pstrFrameName);
 
 	int FindReplicatedTexture(_TCHAR* pstrTextureName, D3D12_GPU_DESCRIPTOR_HANDLE* pd3dSrvGpuDescriptorHandle);
 
 	UINT GetMeshType(UINT nIndex) { return((m_ppMeshes[nIndex]) ? m_ppMeshes[nIndex]->GetType() : 0x00); }
+	CMesh* GetMesh(int nIndex) const { return m_ppMeshes[nIndex]; }
 
 public:
 	void LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature, CGameObject *pParent, FILE *pInFile, CShader* pShader);
@@ -254,11 +284,26 @@ public:
 	static void PrintFrameInfo(CGameObject *pGameObject, CGameObject *pParent);
 };
 
-class CTexturedRectObject : public CGameObject
+
+
+#define MAX_EXPLOSION_FRAME 63 // 8x8 sprite sheet (0~63)
+#define EXPLOSION_FRAME_TIME 0.02f // time per frame
+
+class CExplosionObject : public CGameObject
 {
 public:
-	CTexturedRectObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature);
-	virtual ~CTexturedRectObject();
+	CExplosionObject();
+	virtual ~CExplosionObject();
+
+	void Start(const XMFLOAT3& xmf3Position);
+	virtual void Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent = nullptr);
+
+	bool IsAlive() const { return m_bIsAlive; }
+
+protected:
+	bool m_bIsAlive = false;
+	float m_fAge = 0.0f;
+	int m_nCurrentFrame = 0;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -317,15 +362,6 @@ public:
 	virtual ~CSkyBox();
 
 	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera = NULL);
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-class CBoundingBoxObject : public CGameObject
-{
-public:
-	CBoundingBoxObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature);
-	virtual ~CBoundingBoxObject();
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

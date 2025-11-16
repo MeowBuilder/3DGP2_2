@@ -1,5 +1,8 @@
 #pragma once
 
+#define FRAME_BUFFER_WIDTH		1200
+#define FRAME_BUFFER_HEIGHT		800
+
 #include "Timer.h"
 #include "Player.h"
 #include "Scene.h"

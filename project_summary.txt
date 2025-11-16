@@ -1,0 +1,26 @@
+# Project Summary: 3DGP-2 TerrainPlayer Implementation
+
+## Objective
+Implement `TerrainPlayer` in the `Other` directory and integrate it into the main project, replacing the basic player. Ensure the `TerrainPlayer` correctly interacts with the terrain, specifically regarding height adjustments.
+
+## Current State
+The `TerrainPlayer` class has been successfully extracted and moved to the `Other` directory. The `Scene` class has been updated to instantiate `TerrainPlayer` instead of the original player.
+
+### Key Changes:
+- **File Restructuring:**
+    - `Other/Player.h` and `Other/Player.cpp`: Contain the base `CPlayer` class.
+    - `Other/TerrainPlayer.h` and `Other/TerrainPlayer.cpp`: Contain the `TerrainPlayer` class (renamed from `CTerrainPlayer`).
+    - Original `3DGP-2/Player.h` and `3DGP-2/Player.cpp` were cleaned to only contain `CPlayer`.
+- **Integration:**
+    - `3DGP-2/Scene.h` and `3DGP-2/Scene.cpp` updated to include `Other/TerrainPlayer.h` and instantiate `TerrainPlayer`.
+- **Bug Fixes & Enhancements:**
+    - **Access Violation Fix (Shader):** Corrected an access violation in `TerrainPlayer`'s constructor by ensuring the shader is set on the loaded child `CGameObject` (the model) rather than the `TerrainPlayer` itself, as `TerrainPlayer` does not directly manage materials.
+    - **Endless Falling Fix:** Overrode `TerrainPlayer::Update` to explicitly call `OnPlayerUpdateCallback` after the base `CPlayer::Update`. This ensures that the player's vertical position is consistently adjusted to the terrain height, preventing it from falling through the ground due to gravity or rapid movement.
+    - **Explicit Terrain Reference:** Modified `TerrainPlayer` to hold a direct `CHeightMapTerrain* m_pTerrain` member, initialized in the constructor. This makes the terrain reference more explicit and removes the need for casting from `void*` context pointers in callback functions.
+    - **Access Violation Fix (Terrain Initialization Order):** Corrected an access violation by ensuring `m_pTerrain` is initialized in the `TerrainPlayer` constructor *before* any methods that rely on it (like `ChangeCamera` which calls `Update` and subsequently `OnPlayerUpdateCallback`) are invoked.
+    - **Robust Heightmap Loading:** Added error checking to `CRawFormatImage` constructor for `CreateFile` and `ReadFile` operations. Also added `NULL` checks for `m_pRawImagePixels` in `CHeightMapImage::GetHeight` and `CHeightMapGridMesh::OnGetHeight` to prevent access violations if the heightmap data fails to load.
+    - **Corrected Player Initialization Flow:** Moved the `ChangeCamera` call from the `TerrainPlayer` constructor to `CScene::BuildObjects` after the `TerrainPlayer` object has been fully constructed. This ensures that the `CHeightMapTerrain` object is completely initialized and valid before `TerrainPlayer` attempts to access its members through `ChangeCamera` -> `Update` -> `OnPlayerUpdateCallback`.
+
+## Next Steps
+- **Verification:** Compile and run the project to verify that the `TerrainPlayer` is correctly initialized, displays its model, and no longer falls endlessly through the terrain.
+- **Further Testing:** Test player movement and camera behavior on the terrain to ensure all interactions are as expected.

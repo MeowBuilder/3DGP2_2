@@ -1,0 +1,23 @@
+2025년 11월 16일 일요일:
+- `Other/Shaders.hlsl` 파일의 `PSStandardPlayer` 픽셀 셰이더에서 하드코딩된 알파 값(c.a = 0.3f;)을 제거하여, 플레이어 모델의 투명도가 텍스처의 알파 채널에 따라 결정되도록 수정함.
+- 총알 관련 코드 삭제:
+    - `Other/Object.h`에서 `CBullet` 클래스 선언 제거.
+    - `Other/Object.cpp`에서 `CBullet` 클래스 구현 제거.
+    - `Other/Scene.h`에서 `CBullet` 전방 선언, 총알 관련 함수 선언, 총알 관련 멤버 변수 제거.
+    - `Other/Scene.cpp`에서 `CScene::SpawnBullet`, `CScene::AnimateBullets`, `CScene::CheckBulletCollisions`, `CScene::RenderBullets` 함수 구현 제거.
+    - `Other/Scene.cpp`의 `CScene::BuildObjects`에서 총알 리소스 생성 코드 제거.
+    - `Other/Scene.cpp`의 `CScene::ReleaseObjects`에서 총알 리소스 해제 코드 제거.
+    - `Other/Scene.cpp`의 `CScene::AnimateObjects`에서 총알 관련 함수 호출 제거.
+    - `Other/Scene.cpp`의 `CScene::Render`에서 총알 관련 함수 호출 제거.
+- 플레이어-적 충돌 시 적 객체 삭제 기능 구현:
+    - `Other/Scene.cpp`의 `CScene::AnimateObjects` 함수 내에 플레이어(`m_pPlayer`)와 적 객체(`CObjectsShader`에서 관리하는 객체들) 간의 충돌 감지 로직을 추가함.
+    - 충돌 시 `SpawnExplosion`을 호출하고, 적 객체의 `m_bRender` 플래그를 `false`로 설정하여 화면에서 사라지게 함.
+- OBB 충돌 박스 렌더링 기능 구현:
+    - `Other/Scene.h`에 `m_pOBBMesh`, `m_pOBBMaterial`, `m_bRenderOBB` 멤버 추가.
+    - `Other/Object.h`에서 `CGameObject::RenderOBB` 시그니처 수정.
+    - `Other/Object.cpp`에 `CGameObject::RenderOBB` 구현 추가.
+    - `Other/Shader.cpp`에서 `CStandardShader::CreateShader`를 수정하여 와이어프레임 PSO를 지원하도록 함.
+    - `Other/Scene.cpp`의 `CScene::BuildObjects`에서 `m_pOBBMesh` 및 `m_pOBBMaterial` 초기화.
+    - `Other/Scene.cpp`의 `CScene::ReleaseObjects`에서 `m_pOBBMesh` 및 `m_pOBBMaterial` 해제.
+    - `Other/Scene.cpp`의 `CScene::OnProcessingKeyboardMessage`에서 F12 키 입력 처리 로직 추가.
+    - `Other/Scene.cpp`의 `CScene::Render`에 OBB 렌더링 로직 추가.
