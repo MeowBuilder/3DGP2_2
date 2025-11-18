@@ -224,15 +224,15 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppShaders[0] = pObjectsShader;
 
 	m_pPlayer = new CTerrainPlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
-	m_pPlayer->SetPosition(XMFLOAT3(250, 702, 1750));
+	m_pPlayer->SetPosition(XMFLOAT3(250, 670, 1750));
 
 	CWaterShader* pWaterShader = new CWaterShader();
 	pWaterShader->AddRef();
 	pWaterShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	m_ppShaders[3] = pWaterShader;
 
-	float waterWidth = 257 * xmf3Scale.x;
-	float waterLength = 257 * xmf3Scale.z;
+	float waterWidth = 514 * xmf3Scale.x;
+	float waterLength = 514 * xmf3Scale.z;
 	m_pWater = new CWaterObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, pWaterShader, waterWidth, waterLength);
 	m_pWater->SetPosition(920.0f, 350.0f, 1270.0f);
 
@@ -298,26 +298,21 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0);
 	m_pExitButtonHoverTexture->SetRootParameterIndex(0, 0);
 
-	// Create UI for player speed
-	// 1) Load font texture (0-9, K, m, /, h texture sheet)
 	m_pFontTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	m_pFontTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Font.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pFontTexture, 0);
 	m_pFontTexture->SetRootParameterIndex(0, 0);
 
-	// 2) Create material for font
 	m_pFontMaterial = new CMaterial();
 	m_pFontMaterial->AddRef();
 	m_pFontMaterial->SetTexture(m_pFontTexture);
-	m_pFontMaterial->SetShader(pUIShader); // Reuse the same CUIShader
+	m_pFontMaterial->SetShader(pUIShader);
 
-	// 3) Create digit objects for speed display
-	// "XXXKm/h" -> 3 digits + "Km/h" (1 char) = 4 characters
-	float charWidth = 0.06f; // Doubled width for each character
-	float charHeight = 0.10f; // Doubled height for each character
-	float totalWidth = charWidth * m_nMaxSpeedDigits; // Total width of the speed display
-	float startX = (1.0f - totalWidth) / 2.0f; // Center alignment
-	float startY = 0.9f; // Bottom of the screen
+	float charWidth = 0.06f;
+	float charHeight = 0.10f;
+	float totalWidth = charWidth * m_nMaxSpeedDigits;
+	float startX = (1.0f - totalWidth) / 2.0f;
+	float startY = 0.9f;
 
 	for (int i = 0; i < m_nMaxSpeedDigits; i++)
 	{
@@ -330,9 +325,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_pSpeedDigits[i]->SetMesh(0, pCharMesh);
 		m_pSpeedDigits[i]->SetMaterial(0, m_pFontMaterial);
 
-		// Initialize with '0' or 'Km/h'
-		if (i < 3) SetCharUV(m_pSpeedDigits[i], '0'); // For "XXX" part
-		else if (i == 3) SetCharUV(m_pSpeedDigits[i], 'K'); // 'K' will be mapped to the 'Km/h' character
+		if (i < 3) SetCharUV(m_pSpeedDigits[i], '0');
+		else if (i == 3) SetCharUV(m_pSpeedDigits[i], 'K');
 	}
 
 	m_pBillboardShader = new CBillboardShader();
@@ -340,64 +334,77 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pBillboardShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	m_ppShaders[2] = m_pBillboardShader;
 
-	m_pBillboardTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pBillboardTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Model/Textures/Tree02.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTexture, 0, 12);
+	// Load billboard textures
+	m_pBillboardTextures[0] = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pBillboardTextures[0]->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/Flower01.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTextures[0], 0, 12);
 
-	int nBillboardsToGenerate = 100;
+	m_pBillboardTextures[1] = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pBillboardTextures[1]->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/Grass02.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTextures[1], 0, 12);
+
+	m_pBillboardTextures[2] = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pBillboardTextures[2]->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/Tree03.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTextures[2], 0, 12);
+
+	int nBillboardsToGenerate = 200;
 	m_nBillboardObjects = nBillboardsToGenerate;
 	m_ppBillboardObjects = new CGameObject * [m_nBillboardObjects];
 
-	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f);
-	float generationRadius = 200.0f;
-	for (int i = 0; i < nBillboardsToGenerate; ++i)
+	for (int i = 0; i < nBillboardsToGenerate; )
 	{
-		float x = playerInitialPos.x + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
-		float z = playerInitialPos.z + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
-		float y = m_pTerrain->GetHeight(x, z) + 1.0f;
+		float randomX = Random() * m_pTerrain->GetWidth();
+		float randomZ = Random() * m_pTerrain->GetLength();
 
-		XMFLOAT3 billboardPosition = XMFLOAT3(x, y, z);
+		XMFLOAT3 xmf3Scale = m_pTerrain->GetScale();
+		int z = (int)(randomZ / xmf3Scale.z);
+		bool bReverseQuad = ((z % 2) != 0);
+		float fHeight = m_pTerrain->GetHeight(randomX, randomZ, bReverseQuad) + 1.0f;
 
-		CBillboardObject* pBillboardObject = new CBillboardObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, billboardPosition, m_pBillboardShader, m_pBillboardTexture);
+		if (fHeight < 350.0f)
+		{
+			continue;
+		}
+
+		int textureIndex = (int)(Random() * m_nBillboardTextureCount);
+		CTexture* pSelectedTexture = m_pBillboardTextures[textureIndex];
+		pSelectedTexture->AddRef();
+
+		XMFLOAT3 billboardPosition = XMFLOAT3(randomX, fHeight, randomZ);
+
+		CBillboardObject* pBillboardObject = new CBillboardObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, billboardPosition, m_pBillboardShader, pSelectedTexture);
 		m_ppBillboardObjects[i] = pBillboardObject;
+		i++;
 	}
 
-
-
-	// 1. Explosion Resources
-	// 1.1. Create Explosion Shader
 	m_pExplosionShader = new CExplosionShader();
 	m_pExplosionShader->AddRef();
 	m_pExplosionShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	m_ppShaders[4] = m_pExplosionShader;
 
-	// 1.2. Load Texture and Create Material
 	CTexture* pExplosionTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	pExplosionTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Effect.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, pExplosionTexture, 0, 3); // Assuming root parameter 3 is for albedo
+	pExplosionTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Effect.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, pExplosionTexture, 0, 3);
 
 	m_pExplosionMaterial = new CMaterial();
 	m_pExplosionMaterial->AddRef();
 	m_pExplosionMaterial->SetTexture(pExplosionTexture);
 	m_pExplosionMaterial->SetShader(m_pExplosionShader);
 
-	// 1.3. Create single-point mesh
 	XMFLOAT3 xmf3Position(0.0f, 0.0f, 0.0f);
 	m_pExplosionMesh = new CPointMesh(pd3dDevice, pd3dCommandList, 1, &xmf3Position);
 	m_pExplosionMesh->AddRef();
 
-	// 1.4. Create explosion object pool
 	m_vExplosions.resize(50);
 	for (int i = 0; i < 50; ++i)
 	{
 		m_vExplosions[i] = new CExplosionObject();
 		m_vExplosions[i]->SetMesh(0, m_pExplosionMesh);
 		m_vExplosions[i]->SetMaterial(0, m_pExplosionMaterial);
-		m_vExplosions[i]->m_bRender = false; // Initially inactive
+		m_vExplosions[i]->m_bRender = false;
 		m_vExplosions[i]->AddRef();
 	}
 
-	// Create Building
 	m_pBuildingObject = new CGameObject(1, 1);
 	CCubeMesh* pBuildingMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 50.0f, 50.0f, 50.0f);
 	m_pBuildingObject->SetMesh(0, pBuildingMesh);
@@ -405,26 +412,24 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pBuildingMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f); // Gray
 	pBuildingMaterial->SetShader(pObjectsShader);
 	m_pBuildingObject->SetMaterial(0, pBuildingMaterial);
-	m_pBuildingObject->SetPosition(250.0f, 725.0f, 1800.0f);
+	m_pBuildingObject->SetPosition(250.0f, 691.0f, 1800.0f);
 	m_pBuildingObject->UpdateTransform(NULL);
 
-	// Create Mirror on the building wall
 	CTexturedRectMesh* pMirrorMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 50.0f, 50.0f, 0.0f);
 	m_pMirrorObject = new CGameObject(1, 1);
 	m_pMirrorObject->SetMesh(0, pMirrorMesh);
 
 	CMaterial* pMirrorMaterial = new CMaterial();
-	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.7f, 0.8f, 0.9f, 0.5f); // Green for debugging
-	pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f); // Semi-transparent
+	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.7f, 0.8f, 0.9f, 0.5f);
+	pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f);
 	m_pMirrorObject->SetMaterial(0, pMirrorMaterial);
-	m_pMirrorObject->SetPosition(250.0f, 725.0f, 1774.9f); // On the Z- face of the building
+	m_pMirrorObject->SetPosition(250.0f, 691, 1774.9f);
 	m_pMirrorObject->Rotate(0.0f, 180.0f, 0.0f);
 	m_pMirrorObject->UpdateTransform(NULL);
 
 	m_pMirrorShader = new CMirrorShader(this, m_pMirrorObject);
 	m_pMirrorShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 
-	// Assign the correct shader to the mirror's material
 	pMirrorMaterial->SetShader(m_pMirrorShader);
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
@@ -484,6 +489,11 @@ void CScene::ReleaseObjects()
 	{
 		for (int i = 0; i < m_nBillboardObjects; i++) if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Release();
 		delete[] m_ppBillboardObjects;
+	}
+
+	for (int i = 0; i < m_nBillboardTextureCount; ++i)
+	{
+		if (m_pBillboardTextures[i]) m_pBillboardTextures[i]->Release();
 	}
 
 	if (m_ppGameObjects)
@@ -705,12 +715,11 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
             OutputDebugStringA((char*)pd3dErrorBlob->GetBufferPointer());
             pd3dErrorBlob->Release();
         }
-        return NULL; // Or handle more gracefully
+        return NULL;
     }
 
 	pd3dDevice->CreateRootSignature(0, pd3dSignatureBlob->GetBufferPointer(), pd3dSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void **)&pd3dGraphicsRootSignature);
 	if (pd3dSignatureBlob) pd3dSignatureBlob->Release();
-	// if (pd3dErrorBlob) pd3dErrorBlob->Release(); // Already released if it existed and failed
 
 	return(pd3dGraphicsRootSignature);
 }
@@ -812,7 +821,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 			case WM_KEYDOWN:
 				switch (wParam)
 				{
-				case VK_F12: // F12 key
+				case VK_F12:
 					m_bRenderAABB = !m_bRenderAABB;
 					return true;
 				default:
@@ -842,7 +851,6 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
 
-	// Collision Detection
 	if (m_pPlayer && m_ppShaders && m_ppShaders[0])
 	{
 		CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
@@ -876,7 +884,6 @@ void CScene::UpdateUIButtons(float fTimeElapsed)
 {
 	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
 	{
-		// Set default textures for all buttons first
 		if (m_pStartButtonObject && m_pStartButtonObject->GetMaterial(0)->GetTexture() != m_pStartButtonDefaultTexture)
 		{
 			m_pStartButtonObject->GetMaterial(0)->SetTexture(m_pStartButtonDefaultTexture);
@@ -886,7 +893,6 @@ void CScene::UpdateUIButtons(float fTimeElapsed)
 			m_pExitButtonObject->GetMaterial(0)->SetTexture(m_pExitButtonDefaultTexture);
 		}
 
-		// Apply hover texture if an object is hovered
 		if (m_pHoveredObject == m_pStartButtonObject)
 		{
 			if (m_pStartButtonObject && m_pStartButtonObject->GetMaterial(0)->GetTexture() != m_pStartButtonHoverTexture)
@@ -950,10 +956,8 @@ float CScene::GetPlayerSpeed()
 	if (!m_pPlayer) return 0.0f;
 
 	XMFLOAT3 xmf3Velocity = m_pPlayer->GetVelocity();
-	// Calculate the magnitude of the velocity vector
 	float fSpeedMPS = sqrtf(xmf3Velocity.x * xmf3Velocity.x + xmf3Velocity.y * xmf3Velocity.y + xmf3Velocity.z * xmf3Velocity.z);
 
-	// Convert meters per second to kilometers per hour
 	// 1 m/s = 3.6 km/h
 	return fSpeedMPS * 3.6f;
 }
@@ -967,22 +971,19 @@ void CScene::SetCharUV(CGameObject* pCharObject, char character)
 	{
 		charIndex = character - '0';
 	}
-	else if (character == 'K') charIndex = 10; // 'K' now represents the "Km/h" single character
+	else if (character == 'K') charIndex = 10;
 
-	// If character is not found, default to '0'
-	if (charIndex == -1) charIndex = 0; // Default to '0'
+	if (charIndex == -1) charIndex = 0;
 
-	// Assuming Font.dds has characters arranged in a single row: 0-9, Km/h
-	const float totalCharsInRow = 11.0f; // 10 digits + "Km/h"
+	const float totalCharsInRow = 11.0f;
 	const float cellW = 1.0f / totalCharsInRow;
-	const float cellH = 1.0f; // Assuming single row
+	const float cellH = 1.0f;
 
 	float u0 = charIndex * cellW;
 	float u1 = u0 + cellW;
 	float v0 = 0.0f;
 	float v1 = cellH;
 
-	// Prevent bleeding
 	const float epsU = 0.002f;
 	const float epsV = 0.002f;
 	u0 += epsU; u1 -= epsU;
@@ -995,22 +996,18 @@ void CScene::SetCharUV(CGameObject* pCharObject, char character)
 void CScene::UpdatePlayerSpeedUI()
 {
 	float fSpeed = GetPlayerSpeed();
-	// Clamp speed to a reasonable range, e.g., 0 to 999
 	if (fSpeed < 0.0f) fSpeed = 0.0f;
-	if (fSpeed > 999.0f) fSpeed = 999.0f; // Max 3 digits
+	if (fSpeed > 999.0f) fSpeed = 999.0f;
 
-	// Format the speed into a string "XXX"
 	char szSpeed[16];
-	sprintf_s(szSpeed, "%3.0f", fSpeed); // e.g., "123" or "  0"
+	sprintf_s(szSpeed, "%3.0f", fSpeed);
 
-	// Update each character's UV coordinates
-	for (int i = 0; i < 3; i++) // "XXX" part
+	for (int i = 0; i < 3; i++)
 	{
 		if (m_pSpeedDigits[i]) SetCharUV(m_pSpeedDigits[i], szSpeed[i]);
 	}
 
-	// Set " Km/h" part
-	if (m_pSpeedDigits[3]) SetCharUV(m_pSpeedDigits[3], 'K'); // 'K' maps to "Km/h" character
+	if (m_pSpeedDigits[3]) SetCharUV(m_pSpeedDigits[3], 'K');
 }
 
 

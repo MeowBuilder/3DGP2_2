@@ -347,14 +347,14 @@ float4 PS_UI(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 // Billboard Shaders
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
-Texture2D gtxtBillboard : register(t17); //
+Texture2D gtxtBillboard : register(t17);
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct VS_BILLBOARD_INPUT
 {
-	float3 position : POSITION; //
+	float3 position : POSITION;
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -362,7 +362,7 @@ struct VS_BILLBOARD_INPUT
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct GS_BILLBOARD_INPUT
 {
-	float3 position : POSITION; //
+	float3 position : POSITION;
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -370,8 +370,8 @@ struct GS_BILLBOARD_INPUT
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct PS_BILLBOARD_INPUT
 {
-	float4 position : SV_POSITION; //
-	float2 uv : TEXCOORD;       //
+	float4 position : SV_POSITION;
+	float2 uv : TEXCOORD;
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -390,22 +390,18 @@ GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 [maxvertexcount(4)]
 void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
-    //
-	float2 size = float2(4.0f, 4.0f); //
-
-    //
-
-	float3 up = normalize(gmtxInverseView._21_22_23);
-	float3 right = normalize(gmtxInverseView._11_12_13);
-
-    //
+	float2 size = float2(4.0f, 4.0f);
+	
+    float3 cameraForward = normalize(gmtxInverseView._31_32_33);
+    float3 up = float3(0.0f, 1.0f, 0.0f);
+    float3 right = normalize(cross(up, cameraForward));
+	
 	float3 positions[4];
 	positions[0] = input[0].position + (-right * size.x) + (up * size.y); // Top-Left
 	positions[1] = input[0].position + (right * size.x) + (up * size.y);  // Top-Right
 	positions[2] = input[0].position + (-right * size.x) - (up * size.y); // Bottom-Left
 	positions[3] = input[0].position + (right * size.x) - (up * size.y);  // Bottom-Right
-
-    //
+	
 	float2 uvs[4] =
 	{
 		float2(0.0f, 0.0f),
@@ -416,7 +412,6 @@ void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILL
 
 	PS_BILLBOARD_INPUT output;
 	
-    //
 	[unroll]
 	for (int i = 0; i < 4; i++)
 	{

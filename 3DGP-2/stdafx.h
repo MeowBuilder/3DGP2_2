@@ -1,15 +1,9 @@
-// stdafx.h : 자주 사용하지만 자주 변경되지는 않는
-// 표준 시스템 포함 파일 및 프로젝트 관련 포함 파일이
-// 들어 있는 포함 파일입니다.
-//
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN             // 거의 사용되지 않는 내용은 Windows 헤더에서 제외합니다.
-// Windows 헤더 파일:
+#define WIN32_LEAN_AND_MEAN        
 #include <windows.h>
 
-// C의 런타임 헤더 파일입니다.
 #include <stdlib.h>
 #include <malloc.h>
 #include <memory.h>
@@ -22,6 +16,7 @@
 
 #include <fstream>
 #include <vector>
+#include <random>
 
 using namespace std;
 
@@ -44,8 +39,6 @@ using namespace DirectX::PackedVector;
 
 using Microsoft::WRL::ComPtr;
 
-//#define _WITH_SWAPCHAIN_FULLSCREEN_STATE
-
 #define FRAME_BUFFER_WIDTH		1920
 #define FRAME_BUFFER_HEIGHT		1080
 
@@ -55,11 +48,16 @@ using Microsoft::WRL::ComPtr;
 
 #pragma comment(lib, "dxguid.lib")
 
-// TODO: 프로그램에 필요한 추가 헤더는 여기에서 참조합니다.
 
 extern UINT gnCbvSrvDescriptorIncrementSize;
 extern UINT	gnRtvDescriptorIncrementSize;
 extern UINT gnDsvDescriptorIncrementSize;
+
+static std::random_device rd;
+static std::mt19937 gen(rd());
+static std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+
+inline float Random() { return dis(gen); }
 
 extern void SynchronizeResourceTransition(ID3D12GraphicsCommandList* pd3dCommandList, ID3D12Resource* pd3dResource, D3D12_RESOURCE_STATES d3dStateBefore, D3D12_RESOURCE_STATES d3dStateAfter);
 extern void WaitForGpuComplete(ID3D12CommandQueue* pd3dCommandQueue, ID3D12Fence* pd3dFence, UINT64 nFenceValue, HANDLE hFenceEvent);
@@ -69,7 +67,7 @@ extern ID3D12Resource* CreateTextureResourceFromDDSFile(ID3D12Device* pd3dDevice
 extern ID3D12Resource *CreateTextureResourceFromWICFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, wchar_t *pszFileName, ID3D12Resource **ppd3dUploadBuffer, D3D12_RESOURCE_STATES d3dResourceStates = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 extern ID3D12Resource* CreateTexture2DResource(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, UINT nWidth, UINT nHeight, UINT nElements, UINT nMipLevels, DXGI_FORMAT dxgiFormat, D3D12_RESOURCE_FLAGS d3dResourceFlags, D3D12_RESOURCE_STATES d3dResourceStates, D3D12_CLEAR_VALUE* pd3dClearValue);
 
-#define RANDOM_COLOR			XMFLOAT4(rand() / float(RAND_MAX), rand() / float(RAND_MAX), rand() / float(RAND_MAX), rand() / float(RAND_MAX))
+#define RANDOM_COLOR			XMFLOAT4(Random(), Random(), Random(), Random())
 
 #define EPSILON					1.0e-10f
 

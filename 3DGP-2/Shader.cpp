@@ -553,50 +553,23 @@ CObjectsShader::~CObjectsShader()
 {
 }
 
-float Random(float fMin, float fMax)
-{
-	float fRandomValue = (float)rand();
-	if (fRandomValue < fMin) fRandomValue = fMin;
-	if (fRandomValue > fMax) fRandomValue = fMax;
-	return(fRandomValue);
-}
-
-float Random()
-{
-	return(rand() / float(RAND_MAX));
-}
-
-XMFLOAT3 RandomPositionInSphere(XMFLOAT3 xmf3Center, float fRadius, int nColumn, int nColumnSpace)
-{
-    float fAngle = Random() * 360.0f * (2.0f * 3.14159f / 360.0f);
-
-	XMFLOAT3 xmf3Position;
-    xmf3Position.x = xmf3Center.x + fRadius * sin(fAngle);
-    xmf3Position.y = xmf3Center.y - (nColumn * float(nColumnSpace) / 2.0f) + (nColumn * nColumnSpace) + Random();
-    xmf3Position.z = xmf3Center.z + fRadius * cos(fAngle);
-
-	return(xmf3Position);
-}
-
 void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, void *pContext)
 {
 	m_ppObjects = new CGameObject * [m_nObjects];
 
 	CGameObject* pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
-	CGameObject* pGunshipModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
 
 	CHeightMapTerrain* pTerrain = (CHeightMapTerrain*)pContext;
 
 	int nColumnSpace = 5, nColumnSize = 30;
 	int nFirstPassColumnSize = (m_nObjects % nColumnSize) > 0 ? (nColumnSize - 1) : nColumnSize;
 
-	// AABB Resources
-	CCubeMesh* pAABBMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f); // Unit cube
+	CCubeMesh* pAABBMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f);
 	pAABBMesh->AddRef();
 
 	CMaterial* pAABBMaterial = new CMaterial();
 	pAABBMaterial->AddRef();
-	pAABBMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // Red AABB
+	pAABBMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 
 	CStandardShader* pAABBShader = new CStandardShader();
 	pAABBShader->AddRef();
@@ -604,68 +577,46 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 	pAABBMaterial->SetShader(pAABBShader);
 
 	int nObjects = 0;
-	for (int h = 0; h < nFirstPassColumnSize; h++)
+	for (int i = 0; i < m_nObjects; )
 	{
-		for (int i = 0; i < floor(float(m_nObjects) / float(nColumnSize)); i++)
+		m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+		m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
+		pSuperCobraModel->AddRef();
+		m_ppObjects[nObjects]->SetScale(2, 2, 2);
+		m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
+
+		float randomX = Random() * pTerrain->GetWidth();
+		float randomZ = Random() * pTerrain->GetLength();
+
+		XMFLOAT3 xmf3Scale = pTerrain->GetScale();
+		int z = (int)(randomZ / xmf3Scale.z);
+		bool bReverseQuad = ((z % 2) != 0);
+		float fHeight = pTerrain->GetHeight(randomX, randomZ, bReverseQuad) + 3.0f;
+
+		if (fHeight < 350.0f)
 		{
-			if (nObjects % 2)
-			{
-				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
-				pSuperCobraModel->AddRef();
-				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
-			}
-			else
-			{
-				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pGunshipModel);
-				pGunshipModel->AddRef();
-				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
-			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
-
-			m_ppObjects[nObjects]->m_pAABBMesh = pAABBMesh;
-			m_ppObjects[nObjects]->m_pAABBMaterial = pAABBMaterial;
-			pAABBMesh->AddRef();
-			pAABBMaterial->AddRef();
-
-			XMFLOAT3 xmf3Scale = pTerrain->GetScale();
-			int z = (int)(xmf3RandomPosition.z / xmf3Scale.z);
-			bool bReverseQuad = ((z % 2) != 0);
-			float fHeight = pTerrain->GetHeight(xmf3RandomPosition.x, xmf3RandomPosition.z, bReverseQuad) + 3.0f;
-
-			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, fHeight, xmf3RandomPosition.z);
-			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
-			m_ppObjects[nObjects++]->PrepareAnimate();
+			m_ppObjects[nObjects]->Release();
+			m_ppObjects[nObjects] = NULL;
+			continue;
 		}
+
+		m_ppObjects[nObjects]->m_pAABBMesh = pAABBMesh;
+		m_ppObjects[nObjects]->m_pAABBMaterial = pAABBMaterial;
+		pAABBMesh->AddRef();
+		pAABBMaterial->AddRef();
+
+		m_ppObjects[nObjects]->SetPosition(randomX, fHeight, randomZ);
+		m_ppObjects[nObjects]->Rotate(0.0f, Random() * 360.0f, 0.0f);
+		m_ppObjects[nObjects++]->PrepareAnimate();
+		i++;
 	}
 
-	if (nFirstPassColumnSize != nColumnSize)
-	{
-		for (int i = 0; i < m_nObjects - int(floor(float(m_nObjects) / float(nColumnSize)) * nFirstPassColumnSize); i++)
-		{
-			if (nObjects % 2)
-			{
-				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
-				pSuperCobraModel->AddRef();
-				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
-			}
-			else
-			{
-				m_ppObjects[nObjects] = new CGunshipObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
-				m_ppObjects[nObjects]->SetChild(pGunshipModel);
-				pGunshipModel->AddRef();
-				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
-			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), nColumnSize - int(floor(nColumnSize / 2.0f)), nColumnSpace);
-			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 850.0f, xmf3RandomPosition.z);
-			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
-			m_ppObjects[nObjects++]->PrepareAnimate();
-		}
-	}
+	XMFLOAT3 xmf3Scale = pTerrain->GetScale();
+	int z = (int)(1700.9f / xmf3Scale.z);
+	bool bReverseQuad = ((z % 2) != 0);
+	float fHeight = pTerrain->GetHeight(250.0f, 1700.9f, bReverseQuad) + 3.0f;
+	m_ppObjects[nObjects-1]->SetPosition(250.0f, fHeight, 1700.9f);
 
-	m_ppObjects[nObjects-1]->SetPosition(250.0f, 708.0f, 1700.0f);
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 

@@ -145,14 +145,10 @@ protected:
 
 	CGameObject* m_pMainMenuObject = NULL;
 
-
-
-	// Explosion effect resources
 	CPointMesh* m_pExplosionMesh = nullptr;
 	CMaterial* m_pExplosionMaterial = nullptr;
-	CShader* m_pExplosionShader = nullptr; // CExplosionShader
+	CShader* m_pExplosionShader = nullptr;
 
-	// Explosion object pool
 	std::vector<CExplosionObject*> m_vExplosions;
 	int m_nNextExplosion = 0;
 
@@ -177,21 +173,21 @@ protected:
 	CShader								**m_ppShaders = NULL;
 
 
-// ... (existing code)
-
 	CSkyBox								*m_pSkyBox = NULL;
 	CHeightMapTerrain*					m_pTerrain = NULL;
 	CGameObject* m_pBuildingObject = NULL;
 
-	CWaterObject*						m_pWater = NULL; //
-	XMFLOAT4X4							m_xmf4x4WaterAnimation; //
+	CWaterObject*						m_pWater = NULL;
+	XMFLOAT4X4							m_xmf4x4WaterAnimation;
 
 	CCubeMesh* m_pAABBMesh = NULL;
 	CMaterial* m_pAABBMaterial = NULL;
 	bool m_bRenderAABB = false;
 
-	CBillboardShader*					m_pBillboardShader = NULL; // Added for billboard shader
-	CTexture*							m_pBillboardTexture = NULL; // Added for billboard texture
+	CBillboardShader*					m_pBillboardShader = NULL;
+	CTexture*							m_pBillboardTexture = NULL;
+	CTexture*							m_pBillboardTextures[3];
+	int									m_nBillboardTextureCount = 3;
 
 	LIGHT								*m_pLights = NULL;
 	int									m_nLights = 0;

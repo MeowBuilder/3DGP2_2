@@ -8,11 +8,11 @@ CWaterObject::CWaterObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* 
     CTexturedRectMesh* pWaterMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, fWidth, 0.0f, fLength, 0.0f, 0.0f, 0.0f);
     SetMesh(0, pWaterMesh);
 
-    CTexture* pWaterTexture = new CTexture(3, RESOURCE_TEXTURE2D, 0, 1); //
+    CTexture* pWaterTexture = new CTexture(3, RESOURCE_TEXTURE2D, 0, 1);
 
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Base_Texture_0.dds", RESOURCE_TEXTURE2D, 0); // t6
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Detail_Texture_0.dds", RESOURCE_TEXTURE2D, 1); // t7
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/WaveFoam.dds", RESOURCE_TEXTURE2D, 2); // t8
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/Water_Base_Texture_0.dds", RESOURCE_TEXTURE2D, 0); // t6
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/Water_Detail_Texture_0.dds", RESOURCE_TEXTURE2D, 1); // t7
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Terrain/WaveFoam.dds", RESOURCE_TEXTURE2D, 2); // t8
 
     
     CScene::CreateShaderResourceViews(pd3dDevice, pWaterTexture, 0, 13); 
