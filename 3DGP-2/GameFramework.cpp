@@ -318,6 +318,7 @@ void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPA
 					break;
 				case VK_RETURN:
 					if (m_GameState == GameState::MainMenu) SetGameState(GameState::InGame);
+					else if (m_GameState == GameState::InGame) SetGameState(GameState::MainMenu);
 					break;
 				case VK_F1:
 				case VK_F2:
@@ -515,8 +516,6 @@ void CGameFramework::MoveToNextFrame()
 	}
 }
 
-//#define _WITH_PLAYER_TOP
-
 void CGameFramework::FrameAdvance()
 {    
 	m_GameTimer.Tick(0.0f);
@@ -542,7 +541,7 @@ void CGameFramework::FrameAdvance()
 	d3dRtvCPUDescriptorHandle.ptr += (m_nSwapChainBufferIndex * gnRtvDescriptorIncrementSize);
 
 	float pfClearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
-	m_pd3dCommandList->ClearRenderTargetView(d3dRtvCPUDescriptorHandle, pfClearColor/*Colors::Azure*/, 0, NULL);
+	m_pd3dCommandList->ClearRenderTargetView(d3dRtvCPUDescriptorHandle, pfClearColor, 0, NULL);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dDsvCPUDescriptorHandle = m_pd3dDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
@@ -556,7 +555,6 @@ void CGameFramework::FrameAdvance()
 #ifdef _WITH_PLAYER_TOP
 		m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 #endif
-		//if (m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
 	}
 	else
 	{
@@ -590,7 +588,6 @@ void CGameFramework::FrameAdvance()
 #endif
 #endif
 
-//	m_nSwapChainBufferIndex = m_pdxgiSwapChain->GetCurrentBackBufferIndex();
 	MoveToNextFrame();
 
 	m_GameTimer.GetFrameRate(m_pszFrameRate + 12, 37);

@@ -28,7 +28,7 @@ D3D12_INPUT_LAYOUT_DESC CUIShader::CreateInputLayout()
 D3D12_RASTERIZER_DESC CUIShader::CreateRasterizerState()
 {
 	D3D12_RASTERIZER_DESC d3dRasterizerDesc = CShader::CreateRasterizerState();
-	d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_NONE; // Disable culling for UI
+	d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
 	return(d3dRasterizerDesc);
 }
 
@@ -73,7 +73,7 @@ ID3D12RootSignature* CUIShader::CreateGraphicsRootSignature(ID3D12Device* pd3dDe
 
 	pd3dDescriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[0].NumDescriptors = 1;
-	pd3dDescriptorRanges[0].BaseShaderRegister = 0; //t0: gtxtUITexture
+	pd3dDescriptorRanges[0].BaseShaderRegister = 0;
 	pd3dDescriptorRanges[0].RegisterSpace = 0;
 	pd3dDescriptorRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 

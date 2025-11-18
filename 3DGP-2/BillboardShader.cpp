@@ -18,7 +18,6 @@ CBillboardShader::~CBillboardShader()
 
 D3D12_INPUT_LAYOUT_DESC CBillboardShader::CreateInputLayout()
 {
-    // VS_BILLBOARD_INPUT struct: float3 position : POSITION;
     UINT nInputElementDescs = 1;
     D3D12_INPUT_ELEMENT_DESC *pd3dInputElementDescs = new D3D12_INPUT_ELEMENT_DESC[nInputElementDescs];
 
@@ -34,7 +33,7 @@ D3D12_INPUT_LAYOUT_DESC CBillboardShader::CreateInputLayout()
 D3D12_RASTERIZER_DESC CBillboardShader::CreateRasterizerState()
 {
     D3D12_RASTERIZER_DESC d3dRasterizerDesc = CShader::CreateRasterizerState();
-    d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_NONE; //
+    d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
     return d3dRasterizerDesc;
 }
 
@@ -60,7 +59,7 @@ D3D12_DEPTH_STENCIL_DESC CBillboardShader::CreateDepthStencilState()
 {
     D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc = CShader::CreateDepthStencilState();
     d3dDepthStencilDesc.DepthEnable = TRUE;
-    d3dDepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; //
+    d3dDepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     d3dDepthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
     return d3dDepthStencilDesc;
 }
@@ -85,13 +84,13 @@ void CBillboardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
     m_d3dPipelineStateDesc.InputLayout = CreateInputLayout();
     m_d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
     m_d3dPipelineStateDesc.VS = CreateVertexShader();
-    m_d3dPipelineStateDesc.GS = CreateGeometryShader(); //
+    m_d3dPipelineStateDesc.GS = CreateGeometryShader();
     m_d3dPipelineStateDesc.PS = CreatePixelShader();
     m_d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
     m_d3dPipelineStateDesc.BlendState = CreateBlendState();
     m_d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
     m_d3dPipelineStateDesc.SampleMask = UINT_MAX;
-    m_d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT; //
+    m_d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
     m_d3dPipelineStateDesc.NumRenderTargets = 1;
     m_d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
@@ -100,7 +99,6 @@ void CBillboardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 
     HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[0]);
     
-    //
     if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs)
     {
         delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;

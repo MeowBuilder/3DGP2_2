@@ -11,17 +11,16 @@ CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd
     m_normalizedWidth = width;
     m_normalizedHeight = height;
 
-    // Convert normalized screen coordinates [0,1] to NDC [-1,1]
     float ndcX = (x * 2.0f) - 1.0f;
-    float ndcY = 1.0f - (y * 2.0f); // Y-axis is inverted
+    float ndcY = 1.0f - (y * 2.0f);
     float ndcWidth = width * 2.0f;
     float ndcHeight = height * 2.0f;
 
     m_pxmf3Positions = new XMFLOAT3[m_nVertices];
-    m_pxmf3Positions[0] = XMFLOAT3(ndcX, ndcY, 0.0f); // Top-left
-    m_pxmf3Positions[1] = XMFLOAT3(ndcX + ndcWidth, ndcY, 0.0f); // Top-right
-    m_pxmf3Positions[2] = XMFLOAT3(ndcX + ndcWidth, ndcY - ndcHeight, 0.0f); // Bottom-right
-    m_pxmf3Positions[3] = XMFLOAT3(ndcX, ndcY - ndcHeight, 0.0f); // Bottom-left
+    m_pxmf3Positions[0] = XMFLOAT3(ndcX, ndcY, 0.0f);
+    m_pxmf3Positions[1] = XMFLOAT3(ndcX + ndcWidth, ndcY, 0.0f);
+    m_pxmf3Positions[2] = XMFLOAT3(ndcX + ndcWidth, ndcY - ndcHeight, 0.0f);
+    m_pxmf3Positions[3] = XMFLOAT3(ndcX, ndcY - ndcHeight, 0.0f);
 
     m_pxmf2TextureCoords0 = new XMFLOAT2[m_nVertices];
     m_pxmf2TextureCoords0[0] = XMFLOAT2(0.0f, 0.0f);
@@ -34,7 +33,6 @@ CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd
     m_d3dPositionBufferView.StrideInBytes = sizeof(XMFLOAT3);
     m_d3dPositionBufferView.SizeInBytes = sizeof(XMFLOAT3) * m_nVertices;
 
-    // This buffer will be updated frequently from the CPU, so create it in an UPLOAD heap.
     D3D12_HEAP_PROPERTIES d3dHeapProperties = { D3D12_HEAP_TYPE_UPLOAD };
     D3D12_RESOURCE_DESC d3dResourceDesc = { D3D12_RESOURCE_DIMENSION_BUFFER };
     d3dResourceDesc.Width = sizeof(XMFLOAT2) * m_nVertices;
@@ -55,14 +53,12 @@ CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd
         __uuidof(ID3D12Resource),
         (void**)&m_pd3dTextureCoord0Buffer);
 
-    // Copy the initial UV data to the buffer.
     UINT8* pData;
     D3D12_RANGE readRange = { 0, 0 };
     m_pd3dTextureCoord0Buffer->Map(0, &readRange, (void**)&pData);
     memcpy(pData, m_pxmf2TextureCoords0, sizeof(XMFLOAT2) * m_nVertices);
     m_pd3dTextureCoord0Buffer->Unmap(0, NULL);
 
-    // The separate upload buffer is not needed for this resource.
     m_pd3dTextureCoord0UploadBuffer = NULL;
 
     m_d3dTextureCoord0BufferView.BufferLocation = m_pd3dTextureCoord0Buffer->GetGPUVirtualAddress();
@@ -106,17 +102,15 @@ void CUIRectMesh::Render(ID3D12GraphicsCommandList* pd3dCommandList, int nSubSet
 
 void CUIRectMesh::SetUVRect(float u0, float v0, float u1, float v1)
 {
-	// This mesh is assumed to always have 4 vertices (TL, TR, BR, BL)
 	XMFLOAT2 newUVs[4] =
 	{
-		XMFLOAT2(u0, v0), // Top-Left
-		XMFLOAT2(u1, v0), // Top-Right
-		XMFLOAT2(u1, v1), // Bottom-Right
-		XMFLOAT2(u0, v1)  // Bottom-Left
+		XMFLOAT2(u0, v0),
+		XMFLOAT2(u1, v0),
+		XMFLOAT2(u1, v1),
+		XMFLOAT2(u0, v1) 
 	};
 
 	XMFLOAT2* pMappedUV = nullptr;
-	// We do not intend to read from this resource on the CPU.
 	D3D12_RANGE readRange = { 0, 0 }; 
 
 	HRESULT hResult = m_pd3dTextureCoord0Buffer->Map(
@@ -124,7 +118,6 @@ void CUIRectMesh::SetUVRect(float u0, float v0, float u1, float v1)
 
 	if (FAILED(hResult) || !pMappedUV)
 	{
-		// Handle error: failed to map buffer
 		return;
 	}
 

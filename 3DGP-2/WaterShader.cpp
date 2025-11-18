@@ -81,7 +81,7 @@ D3D12_SHADER_BYTECODE CWaterShader::CreatePixelShader()
 
 void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-    HRESULT hResult; // Declare hResult
+    HRESULT hResult;
     ComPtr<ID3D12InfoQueue> info;
     if (SUCCEEDED(pd3dDevice->QueryInterface(IID_PPV_ARGS(&info))))
     {
@@ -89,7 +89,7 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
         info->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
     }
 
-    m_nPipelineStates = 2; // Now two pipeline states
+    m_nPipelineStates = 2;
     m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
     ::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
@@ -110,7 +110,6 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
     m_d3dPipelineStateDesc.SampleDesc.Count = 1;
     m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-    // PSO[0]: Normal Water
     hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
     if (FAILED(hResult))
     {
@@ -118,18 +117,16 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
         m_ppd3dPipelineStates[0] = NULL;
     }
     
-    // PSO[1]: Reflected Water
     D3D12_RASTERIZER_DESC d3dRasterizerDesc = CreateRasterizerState();
     d3dRasterizerDesc.FrontCounterClockwise = TRUE;
     m_d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
     
-    // Custom DepthStencilState for reflected water: enable depth writing
-    D3D12_DEPTH_STENCIL_DESC reflectedWaterDepthStencilState = CreateDepthStencilState(); // Start with base depth stencil state
-    reflectedWaterDepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // Enable depth writing
-    reflectedWaterDepthStencilState.StencilEnable = TRUE; // Keep stencil enabled for mirror mask
+    D3D12_DEPTH_STENCIL_DESC reflectedWaterDepthStencilState = CreateDepthStencilState();
+    reflectedWaterDepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    reflectedWaterDepthStencilState.StencilEnable = TRUE;
     reflectedWaterDepthStencilState.StencilReadMask = 0xff;
-    reflectedWaterDepthStencilState.StencilWriteMask = 0x00; // Read-only stencil
-    reflectedWaterDepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL; // Only render where stencil is 1
+    reflectedWaterDepthStencilState.StencilWriteMask = 0x00;
+    reflectedWaterDepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL; 
     reflectedWaterDepthStencilState.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
     reflectedWaterDepthStencilState.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
     reflectedWaterDepthStencilState.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
