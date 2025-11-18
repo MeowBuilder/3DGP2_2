@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "Shader.h"
+#include "Mesh.h"
 
 CShader::CShader()
 {
@@ -54,10 +55,10 @@ D3D12_SHADER_BYTECODE CShader::CompileShaderFromFile(WCHAR *pszFileName, LPCSTR 
 		if (pd3dErrorBlob)
 		{
 			pErrorString = (char *)pd3dErrorBlob->GetBufferPointer();
-			OutputDebugStringA(pErrorString); // Debug 출력으로 오류 메시지 출력
+			OutputDebugStringA(pErrorString); //
 			pd3dErrorBlob->Release();
 		}
-		// 오류 발생 시 빈 바이트코드 반환 또는 예외 처리
+		//
 		return D3D12_SHADER_BYTECODE{ NULL, 0 }; 
 	}
 
@@ -194,15 +195,15 @@ D3D12_DEPTH_STENCIL_DESC CShader::CreateReflectionStencilState()
 {
 	D3D12_DEPTH_STENCIL_DESC d = CreateDepthStencilState();
 
-	//  반사 패스에서는 깊이는 읽고 쓰고, 스텐실은 거울 마스크 == 1 인 곳만 패스
+	//
 	d.DepthEnable = TRUE;
 	d.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // <--- Changed to ALL
-	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // 약간 여유를 줘도 됨
+	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; //
 
-	//  스텐실: 거울 마스크 == 1 인 곳만 패스
+	//
 	d.StencilEnable = TRUE;
 	d.StencilReadMask = 0xff;
-	d.StencilWriteMask = 0x00; // 읽기 전용
+	d.StencilWriteMask = 0x00; //
 
 	d.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
 	d.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
@@ -244,6 +245,11 @@ void CShader::OnPrepareRender(ID3D12GraphicsCommandList *pd3dCommandList, int nP
 void CShader::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState)
 {
 	OnPrepareRender(pd3dCommandList, nPipelineState);
+}
+
+void CShader::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState, bool bRenderAABB)
+{
+	CShader::Render(pd3dCommandList, pCamera, nPipelineState);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,7 +351,7 @@ void CSkyBoxShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 		m_d3dPipelineStateDesc.DepthStencilState = ds;
 
 		D3D12_RASTERIZER_DESC rs = CreateRasterizerState();
-		rs.CullMode = D3D12_CULL_MODE_BACK;             // 반사 카메라 기준 winding 보정용
+		rs.CullMode = D3D12_CULL_MODE_BACK;             //
 		m_d3dPipelineStateDesc.RasterizerState = rs;
 
 		pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
@@ -584,6 +590,19 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 	int nColumnSpace = 5, nColumnSize = 30;
 	int nFirstPassColumnSize = (m_nObjects % nColumnSize) > 0 ? (nColumnSize - 1) : nColumnSize;
 
+	// AABB Resources
+	CCubeMesh* pAABBMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f); // Unit cube
+	pAABBMesh->AddRef();
+
+	CMaterial* pAABBMaterial = new CMaterial();
+	pAABBMaterial->AddRef();
+	pAABBMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // Red AABB
+
+	CStandardShader* pAABBShader = new CStandardShader();
+	pAABBShader->AddRef();
+	pAABBShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	pAABBMaterial->SetShader(pAABBShader);
+
 	int nObjects = 0;
 	for (int h = 0; h < nFirstPassColumnSize; h++)
 	{
@@ -604,6 +623,11 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
 			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
+
+			m_ppObjects[nObjects]->m_pAABBMesh = pAABBMesh;
+			m_ppObjects[nObjects]->m_pAABBMaterial = pAABBMaterial;
+			pAABBMesh->AddRef();
+			pAABBMaterial->AddRef();
 
 			XMFLOAT3 xmf3Scale = pTerrain->GetScale();
 			int z = (int)(xmf3RandomPosition.z / xmf3Scale.z);
@@ -663,7 +687,7 @@ void CObjectsShader::ReleaseUploadBuffers()
 	for (int j = 0; j < m_nObjects; j++) if (m_ppObjects[j]) m_ppObjects[j]->ReleaseUploadBuffers();
 }
 
-void CObjectsShader::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState)
+void CObjectsShader::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState)
 {
 	CShader::Render(pd3dCommandList, pCamera, nPipelineState);
 
@@ -674,6 +698,23 @@ void CObjectsShader::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera 
 			m_ppObjects[j]->Animate(0.16f);
 			m_ppObjects[j]->UpdateTransform(NULL);
 			m_ppObjects[j]->Render(pd3dCommandList, pCamera);
+		}
+	}
+}
+
+void CObjectsShader::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState, bool bRenderAABB)
+{
+	CShader::Render(pd3dCommandList, pCamera, nPipelineState);
+
+	for (int j = 0; j < m_nObjects; j++)
+	{
+		if (m_ppObjects[j])
+		{
+			m_ppObjects[j]->Animate(0.16f);
+			m_ppObjects[j]->UpdateTransform(NULL);
+			m_ppObjects[j]->Render(pd3dCommandList, pCamera);
+			if(bRenderAABB)
+				m_ppObjects[j]->RenderAABB(pd3dCommandList, pCamera, m_ppObjects[j]->m_pAABBMesh, m_ppObjects[j]->m_pAABBMaterial);
 		}
 	}
 }

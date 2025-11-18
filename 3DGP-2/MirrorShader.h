@@ -57,7 +57,7 @@ public:
 
 
 
-	void RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera); // 사용자 제안: 다시 추가
+	void RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera); //
 
 
 

@@ -506,7 +506,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 {
 	if (!m_bRender) return;
 
-	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+	OnPrepareRender(); //
 
 	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
 	XMFLOAT4X4 xmf4x4World;
@@ -549,7 +549,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 {
 	if (!m_bRender) return;
 
-	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+	OnPrepareRender(); //
 
 	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
 	XMFLOAT4X4 xmf4x4World;
@@ -595,9 +595,9 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
 }
 
-void CGameObject::RenderOBB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pOBBMesh, CMaterial* pOBBMaterial)
+void CGameObject::RenderAABB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pAABBMesh, CMaterial* pAABBMaterial)
 {
-    if (!m_bRender || !pOBBMesh || !pOBBMaterial) return;
+    if (!m_bRender || !pAABBMesh || !pAABBMaterial) return;
 
     // Save current transform
     XMFLOAT4X4 xmf4x4OriginalTransform = m_xmf4x4Transform;
@@ -608,23 +608,23 @@ void CGameObject::RenderOBB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera*
     XMMatrixDecompose(&S, &R, &T, XMLoadFloat4x4(&xmf4x4OriginalWorld));
     XMMATRIX rotationMatrix = XMMatrixRotationQuaternion(R);
 
-    // The OBB's world matrix should be: Scale * Rotation * Translation
-    XMMATRIX obbScale = XMMatrixScaling(m_WorldAABB.Extents.x, m_WorldAABB.Extents.y, m_WorldAABB.Extents.z);
-    XMMATRIX obbRotation = rotationMatrix; // Use the object's rotation
-    XMMATRIX obbTranslation = XMMatrixTranslation(m_WorldAABB.Center.x, m_WorldAABB.Center.y, m_WorldAABB.Center.z);
+    // The AABB's world matrix should be: Scale * Rotation * Translation
+    XMMATRIX AABBScale = XMMatrixScaling(m_WorldAABB.Extents.x, m_WorldAABB.Extents.y, m_WorldAABB.Extents.z);
+    XMMATRIX AABBRotation = rotationMatrix; // Use the object's rotation
+    XMMATRIX AABBTranslation = XMMatrixTranslation(m_WorldAABB.Center.x, m_WorldAABB.Center.y, m_WorldAABB.Center.z);
 
-    XMMATRIX obbWorldMatrix = obbScale * obbRotation * obbTranslation;
-    XMStoreFloat4x4(&m_xmf4x4World, obbWorldMatrix); // Temporarily set the object's world matrix for OBB rendering
+    XMMATRIX AABBWorldMatrix = AABBScale * AABBRotation * AABBTranslation;
+    XMStoreFloat4x4(&m_xmf4x4World, AABBWorldMatrix); // Temporarily set the object's world matrix for AABB rendering
 
-    // Set OBB material's shader
-    if (pOBBMaterial->m_pShader) pOBBMaterial->m_pShader->OnPrepareRender(pd3dCommandList);
-    pOBBMaterial->UpdateShaderVariables(pd3dCommandList);
+    // Set AABB material's shader
+    if (pAABBMaterial->m_pShader) pAABBMaterial->m_pShader->OnPrepareRender(pd3dCommandList);
+    pAABBMaterial->UpdateShaderVariables(pd3dCommandList);
 
-    // Update shader variable with the OBB's world matrix
+    // Update shader variable with the AABB's world matrix
     UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
 
-    // Render the OBB mesh
-    pOBBMesh->Render(pd3dCommandList,0);
+    // Render the AABB mesh
+    pAABBMesh->Render(pd3dCommandList,0);
 
     // Restore original transform
     m_xmf4x4Transform = xmf4x4OriginalTransform;
@@ -1311,9 +1311,9 @@ CMirrorObject::~CMirrorObject()
 
 XMFLOAT4 CMirrorObject::GetMirrorPlane()
 {
-    // TODO: 나중에 XMMatrixReflect에 사용할 Mirror Plane 계산 코드 완성 예정
-    // 현재는 월드 변환이 적용된 평면 정보를 반환해야 함.
-    // 예를 들어, 로컬 평면 (0,1,0,0)을 월드 행렬로 변환하여 반환.
+    // TODO:
+    //
+    //
     // For now, return the initialized plane.
     return m_xmf4MirrorPlane;
 }

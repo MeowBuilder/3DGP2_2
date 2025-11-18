@@ -19,7 +19,7 @@ private:
 protected:
 	ID3DBlob*							m_pd3dVertexShaderBlob = NULL;
 	ID3DBlob*							m_pd3dPixelShaderBlob = NULL;
-	ID3DBlob*							m_pd3dGeometryShaderBlob = NULL; // Geometry Shader Blob 추가
+	ID3DBlob*							m_pd3dGeometryShaderBlob = NULL; //
 
 	int									m_nPipelineStates = 0;
 	ID3D12PipelineState**				m_ppd3dPipelineStates = NULL;
@@ -53,6 +53,7 @@ public:
 
 	virtual void OnPrepareRender(ID3D12GraphicsCommandList *pd3dCommandList, int nPipelineState=0);
 	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState=0);
+	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState, bool bRenderAABB);
 
 	virtual void ReleaseUploadBuffers() { }
 
@@ -124,7 +125,8 @@ public:
 
 	virtual void ReleaseUploadBuffers();
 
-	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState=0);
+	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState);
+	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState=0, bool bRenderAABB = false);
 	void RenderReflected(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, FXMVECTOR xmMirrorPlane)
 	{
 		CShader::Render(pd3dCommandList, pCamera, 1);
@@ -135,8 +137,7 @@ public:
 			CGameObject* pObj = m_ppObjects[i];
 			if (!pObj || !pObj->m_bRender) continue;
 
-			// ① 오브젝트 위치(혹은 AABB 센터)를 가져온다
-			XMFLOAT3 objPos = pObj->GetPosition(); // 월드 기준
+			XMFLOAT3 objPos = pObj->GetPosition();
 			XMVECTOR vObjPos = XMLoadFloat3(&objPos);
 
 

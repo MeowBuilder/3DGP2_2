@@ -11,9 +11,6 @@
 #include "Object.h"
 #include "WaterObject.h" // Added for CWaterObject
 #include "WaterShader.h" // Added for CWaterShader
-#include "GameFramework.h"
-#include "ScreenQuadMesh.h"
-#include "UIShader.h"
 #include "MirrorShader.h"
 #include "Mesh.h"
 
@@ -400,19 +397,6 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_vExplosions[i]->AddRef();
 	}
 
-
-	// OBB Resources
-	m_pOBBMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f); // Unit cube
-	m_pOBBMesh->AddRef();
-
-	m_pOBBMaterial = new CMaterial();
-	m_pOBBMaterial->AddRef();
-	m_pOBBMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // Red OBB
-	CStandardShader* pOBBShader = new CStandardShader();
-	pOBBShader->AddRef();
-	pOBBShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	m_pOBBMaterial->SetShader(pOBBShader);
-
 	// Create Building
 	m_pBuildingObject = new CGameObject(1, 1);
 	CCubeMesh* pBuildingMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 50.0f, 50.0f, 50.0f);
@@ -493,8 +477,8 @@ void CScene::ReleaseObjects()
 	if (m_pExplosionMesh) m_pExplosionMesh->Release();
 	if (m_pExplosionMaterial) m_pExplosionMaterial->Release();
 
-	if (m_pOBBMesh) m_pOBBMesh->Release();
-	if (m_pOBBMaterial) m_pOBBMaterial->Release();
+	if (m_pAABBMesh) m_pAABBMesh->Release();
+	if (m_pAABBMaterial) m_pAABBMaterial->Release();
 
 	if (m_ppBillboardObjects)
 	{
@@ -829,7 +813,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 				switch (wParam)
 				{
 				case VK_F12: // F12 key
-					m_bRenderOBB = !m_bRenderOBB;
+					m_bRenderAABB = !m_bRenderAABB;
 					return true;
 				default:
 					break;
@@ -1055,25 +1039,21 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			if (m_pExitButtonObject) m_pExitButtonObject->Render(pd3dCommandList, NULL);
 		}
 	}
-	else // InGame state
+	else
 	{
-		// Common setup
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 		pCamera->SetViewportsAndScissorRects(pd3dCommandList);
 		pCamera->UpdateShaderVariables(pd3dCommandList);
-		UpdateShaderVariables(pd3dCommandList); // Updates lights
+		UpdateShaderVariables(pd3dCommandList);
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
-		//if (m_pMirrorShader)  
-		//	m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
-		// PASS 0: Render scene normally (excluding the mirror surface itself)
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 		if (m_pBuildingObject) m_pBuildingObject->Render(pd3dCommandList, pCamera);
-		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
+		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera, 0, m_bRenderAABB);
 		if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera);
 		for (int i = 0; i < m_nBillboardObjects; i++)
 		{
@@ -1082,20 +1062,15 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
 
-		// --- MIRROR RENDERING PASSES ---
 		if (m_pMirrorShader)
 		{
-			// PASS 1: Create Stencil Mask
 			m_pMirrorShader->PreRender(pd3dCommandList, pCamera);
 
-			// PASS 2 & 3: Setup reflection state and render reflected objects
 			m_pMirrorShader->RenderReflectedObjects(pd3dCommandList, pCamera);
 
-			// PASS 4 & 5: Restore state and render mirror surface
 			m_pMirrorShader->PostRender(pd3dCommandList, pCamera);
 		}
 
-		// --- UI RENDERING ---
 		UpdatePlayerSpeedUI();
 		CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
 		if (pUIShader)

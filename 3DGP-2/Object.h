@@ -209,8 +209,10 @@ public:
 
 	XMFLOAT3						m_xmf3LocalAABBMin;
 	XMFLOAT3						m_xmf3LocalAABBMax;
-
+	CMesh*							m_pAABBMesh;
+	CMaterial*						m_pAABBMaterial;
 	DirectX::BoundingBox			m_WorldAABB;
+
 
 	void SetLocalAABB(const XMFLOAT3& minPt, const XMFLOAT3& maxPt)
 	{
@@ -242,7 +244,7 @@ public:
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState);
 
-	virtual void RenderOBB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pOBBMesh, CMaterial* pOBBMaterial);
+	virtual void RenderAABB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pAABBMesh, CMaterial* pAABBMaterial);
 
 	virtual void CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual void UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList);
@@ -405,11 +407,11 @@ public:
 	CMirrorObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual ~CMirrorObject();
 
-	// 나중에 Reflection 계산에 쓸 Plane 정보 (이번 단계에서는 사용하지 않음)
+	//
 	XMFLOAT4 m_xmf4MirrorPlane; // Ax + By + Cz + D = 0
 
 	XMFLOAT4 GetMirrorPlane();
 
-	// 필요하다면 거울 초기화용 함수
+	//
 	void SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, float fWidth, float fHeight);
 };

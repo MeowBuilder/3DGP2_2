@@ -89,15 +89,15 @@ float4 PSTerrainWater(VS_WATER_OUTPUT input) : SV_TARGET
 {
 	float2 uv = input.uv;
 
-	// 텍스처 애니메이션 매트릭스 적용
+	//
 	uv = mul(float3(input.uv, 1.0f), (float3x3)gf4x4TextureAnimation).xy;
 
-	// 텍스처 샘플링 (Detail 텍스처는 20배 타일링)
+	//
 	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0);
 	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
 	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
 
-	// 최종 색상 조합
+	//
 	float4 cColor = lerp(cBaseTexColor * cDetail0TexColor, cDetail1TexColor.r * 0.5f, 0.35f);
 	//cColor.a = 1.0f;
 	return(cColor);
@@ -126,21 +126,20 @@ VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 {
     VS_STANDARD_OUTPUT output;
 
-    // 위치(점) -> w=1
+
     float4 posW = mul(float4(input.position, 1.0f), gmtxGameObject);
     output.positionW = posW.xyz;
 
-    // 방향 벡터 -> w=0  (평행이동 제외!)
     output.tangentW   = normalize(mul((float3x3)gmtxGameObject, input.tangent));
     output.bitangentW = normalize(mul((float3x3)gmtxGameObject, input.bitangent));
-    output.normalW    = normalize(mul((float3x3)gmtxGameObject, input.normal)); // 임시
+    output.normalW    = normalize(mul((float3x3)gmtxGameObject, input.normal)); //
 
-    // TBN을 직교화(특히 tangent)
+    
     float3 N = output.normalW;
     float3 T = normalize(output.tangentW - N * dot(output.tangentW, N));
-    float3 B = normalize(cross(N, T));   // 입력 bitangent 대신 cross로 재구성(더 안정적)
+    float3 B = normalize(cross(N, T));   //
 
-    // 저장할 땐 직교화된 걸 저장
+    //
     output.tangentW   = T;
     output.bitangentW = B;
     output.normalW    = N;
@@ -180,7 +179,7 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 
 float4 PSStandardPlayer(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
-	float4 c = PSStandard(input); // 기존 로직 재사용(함수로 빼는 게 더 좋음)
+	float4 c = PSStandard(input); //
 	
     c.a = 0.3f;
 	
@@ -348,65 +347,65 @@ float4 PS_UI(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 // Billboard Shaders
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
-Texture2D gtxtBillboard : register(t17); // 단일 텍스처로 변경
+Texture2D gtxtBillboard : register(t17); //
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// VS_INPUT: 애플리케이션에서 정점 하나의 정보를 받습니다.
+
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct VS_BILLBOARD_INPUT
 {
-	float3 position : POSITION; // 빌보드가 생성될 월드 공간의 위치
+	float3 position : POSITION; //
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// GS_INPUT: Vertex Shader에서 넘어온 정보를 받습니다.
+
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct GS_BILLBOARD_INPUT
 {
-	float3 position : POSITION; // VS에서 전달된 월드 공간 위치
+	float3 position : POSITION; //
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// PS_INPUT: Geometry Shader에서 생성된 정점 정보를 받습니다.
+
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 struct PS_BILLBOARD_INPUT
 {
-	float4 position : SV_POSITION; // 최종 클립 공간 위치
-	float2 uv : TEXCOORD;       // 텍스처 UV 좌표
+	float4 position : SV_POSITION; //
+	float2 uv : TEXCOORD;       //
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// Vertex Shader: 입력된 정점 데이터를 Geometry Shader로 그대로 전달합니다.
+// Vertex Shader:
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 {
 	GS_BILLBOARD_INPUT output;
-	output.position = input.position; // 월드 위치를 그대로 전달
+	output.position = input.position; //
 	return output;
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// Geometry Shader: 정점 하나를 입력받아 카메라를 향하는 사각형(Triangle Strip)을 생성합니다.
+// Geometry Shader:
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 [maxvertexcount(4)]
 void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
-    // 빌보드의 크기 (가로, 세로)
-	float2 size = float2(4.0f, 4.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
+    //
+	float2 size = float2(4.0f, 4.0f); //
 
-    // 카메라의 Up 벡터와 Right 벡터를 뷰 역행렬에서 추출
-    // gmtxInverseView는 cbCameraInfo에 정의되어 있습니다.
+    //
+
 	float3 up = normalize(gmtxInverseView._21_22_23);
 	float3 right = normalize(gmtxInverseView._11_12_13);
 
-    // 사각형의 네 꼭짓점 위치 계산
+    //
 	float3 positions[4];
 	positions[0] = input[0].position + (-right * size.x) + (up * size.y); // Top-Left
 	positions[1] = input[0].position + (right * size.x) + (up * size.y);  // Top-Right
 	positions[2] = input[0].position + (-right * size.x) - (up * size.y); // Bottom-Left
 	positions[3] = input[0].position + (right * size.x) - (up * size.y);  // Bottom-Right
 
-    // UV 좌표
+    //
 	float2 uvs[4] =
 	{
 		float2(0.0f, 0.0f),
@@ -417,11 +416,11 @@ void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILL
 
 	PS_BILLBOARD_INPUT output;
 	
-    // 4개의 정점을 Triangle Strip으로 출력
+    //
 	[unroll]
 	for (int i = 0; i < 4; i++)
 	{
-		output.position = float4(positions[i], 1.0f); // 월드 변환이 이미 적용된 꼭지점이므로 gmtxGameObject 곱셈 제거
+		output.position = float4(positions[i], 1.0f); //
 		output.position = mul(output.position, gmtxView);
 		output.position = mul(output.position, gmtxProjection);
 		output.uv = uvs[i];
@@ -432,13 +431,13 @@ void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILL
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-// Pixel Shader: 텍스처를 샘플링하고 알파값이 낮은 픽셀을 버립니다.
+// Pixel Shader:
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 float4 PSBillboard(PS_BILLBOARD_INPUT input) : SV_TARGET
 {
-	float4 color = gtxtBillboard.Sample(gssWrap, input.uv); // gssWrap (s0) 샘플러 재사용
+	float4 color = gtxtBillboard.Sample(gssWrap, input.uv); //
     
-    // 알파 값이 0.1보다 작으면 픽셀을 그리지 않음 (Alpha Test)
+    //
 	clip(color.a - 0.1f);
 	
 	return color;

@@ -236,11 +236,11 @@ void CPlayer::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamer
 
 	if (nCameraMode == THIRD_PERSON_CAMERA)
 	{
-		nPipelineState = 0; // 불투명
+		nPipelineState = 0; //
 	}
 	else
 	{
-		// SPACESHIP_CAMERA 등 → 유사 1인칭: 블렌딩 PSO
+		//
 		nPipelineState = 1;
 	}
 
@@ -252,7 +252,7 @@ void CPlayer::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamer
 {
 	if (!m_bRender) return;
 
-	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+	OnPrepareRender(); //
 
 	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
 	XMFLOAT4X4 xmf4x4World;
@@ -260,7 +260,7 @@ void CPlayer::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamer
 
 	if (pCamera) UpdateShaderVariable(pd3dCommandList, &xmf4x4World);
 
-	// ★ PlayerShader는 PSO[2]를 반사용으로 사용한다고 가정 (사용자 제안)
+	//
 	if (m_pShader) m_pShader->OnPrepareRender(pd3dCommandList, 2);
 
 	if (m_nMaterials > 0)
@@ -368,7 +368,7 @@ CCamera *CAirplanePlayer::ChangeCamera(DWORD nNewCameraMode, float fTimeElapsed)
 			SetMaxVelocityY(40.0f);
 			m_pCamera = OnChangeCamera(SPACESHIP_CAMERA, nCurrentCameraMode);
 			m_pCamera->SetTimeLag(0.0f);
-			m_pCamera->SetOffset(XMFLOAT3(0.0f, 0.0f, -0.5f)); // 헬기 기준 머리 조금 위/앞 (필요에 따라 조절)
+			m_pCamera->SetOffset(XMFLOAT3(0.0f, 0.0f, -0.5f)); //
 			m_pCamera->SetPosition(Vector3::Add(m_xmf3Position, m_pCamera->GetOffset()));
 			m_pCamera->GenerateProjectionMatrix(1.01f, 5000.0f, ASPECT_RATIO, 60.0f);
 			m_pCamera->SetViewport(0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT, 0.0f, 1.0f);

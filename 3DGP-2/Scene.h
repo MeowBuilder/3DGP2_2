@@ -13,7 +13,6 @@
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh (for background)
 #include "UIShader.h" // Added for UI Shader
 #include "WaterObject.h" // Added for CWaterObject
-#include "CubeMesh.h"
 #include <vector>
 
 
@@ -184,12 +183,12 @@ protected:
 	CHeightMapTerrain*					m_pTerrain = NULL;
 	CGameObject* m_pBuildingObject = NULL;
 
-	CWaterObject*						m_pWater = NULL; // 물 객체
-	XMFLOAT4X4							m_xmf4x4WaterAnimation; // 물 텍스처 애니메이션 매트릭스
+	CWaterObject*						m_pWater = NULL; //
+	XMFLOAT4X4							m_xmf4x4WaterAnimation; //
 
-	CCubeMesh* m_pOBBMesh = NULL;
-	CMaterial* m_pOBBMaterial = NULL;
-	bool m_bRenderOBB = false;
+	CCubeMesh* m_pAABBMesh = NULL;
+	CMaterial* m_pAABBMaterial = NULL;
+	bool m_bRenderAABB = false;
 
 	CBillboardShader*					m_pBillboardShader = NULL; // Added for billboard shader
 	CTexture*							m_pBillboardTexture = NULL; // Added for billboard texture
