@@ -82,12 +82,17 @@ D3D12_SHADER_BYTECODE CWaterShader::CreatePixelShader()
 
 void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
+    HRESULT hResult; // Declare hResult
     ComPtr<ID3D12InfoQueue> info;
     if (SUCCEEDED(pd3dDevice->QueryInterface(IID_PPV_ARGS(&info))))
     {
         info->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
         info->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
     }
+
+    m_nPipelineStates = 2; // Now two pipeline states
+    m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
+    ::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
 	::ZeroMemory(&m_d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 
@@ -106,32 +111,41 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
     m_d3dPipelineStateDesc.SampleDesc.Count = 1;
     m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-    HRESULT hr_pso = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
+    // PSO[0]: Normal Water
+    hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
+    if (FAILED(hResult))
+    {
+        ::MessageBox(NULL, L"CWaterShader::CreateShader() - FAILED Normal Water PipelineState!", L"Error", MB_OK);
+        m_ppd3dPipelineStates[0] = NULL;
+    }
     
-    if (FAILED(hr_pso) || !m_ppd3dPipelineStates[0]) {
-        OutputDebugStringA("\n--- ERROR: Failed to create Water PSO ---\n");
-        ComPtr<ID3D12InfoQueue> pInfoQueue;
-        if (SUCCEEDED(pd3dDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue))))
-        {
-            const UINT64 nMessages = pInfoQueue->GetNumStoredMessages();
-            for (UINT64 i = 0; i < nMessages; ++i)
-            {
-                SIZE_T messageLength = 0;
-                pInfoQueue->GetMessage(i, nullptr, &messageLength);
-                std::vector<char> buffer(messageLength);
-                D3D12_MESSAGE* pMessage = reinterpret_cast<D3D12_MESSAGE*>(buffer.data());
-                if (SUCCEEDED(pInfoQueue->GetMessage(i, pMessage, &messageLength)))
-                {
-                    OutputDebugStringA("\n--- D3D12 InfoQueue Message ---\n");
-                    OutputDebugStringA(pMessage->pDescription);
-                    OutputDebugStringA("\n---------------------------------\n");
-                }
-            }
-        }
+    // PSO[1]: Reflected Water
+    D3D12_RASTERIZER_DESC d3dRasterizerDesc = CreateRasterizerState();
+    d3dRasterizerDesc.FrontCounterClockwise = TRUE;
+    m_d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+    
+    // Custom DepthStencilState for reflected water: enable depth writing
+    D3D12_DEPTH_STENCIL_DESC reflectedWaterDepthStencilState = CreateDepthStencilState(); // Start with base depth stencil state
+    reflectedWaterDepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // Enable depth writing
+    reflectedWaterDepthStencilState.StencilEnable = TRUE; // Keep stencil enabled for mirror mask
+    reflectedWaterDepthStencilState.StencilReadMask = 0xff;
+    reflectedWaterDepthStencilState.StencilWriteMask = 0x00; // Read-only stencil
+    reflectedWaterDepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL; // Only render where stencil is 1
+    reflectedWaterDepthStencilState.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+    reflectedWaterDepthStencilState.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+    reflectedWaterDepthStencilState.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+    reflectedWaterDepthStencilState.BackFace = reflectedWaterDepthStencilState.FrontFace;
+
+    m_d3dPipelineStateDesc.DepthStencilState = reflectedWaterDepthStencilState;
+    hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
+    if (FAILED(hResult))
+    {
+        ::MessageBox(NULL, L"CWaterShader::CreateShader() - FAILED Reflected Water PipelineState!", L"Error", MB_OK);
+        m_ppd3dPipelineStates[1] = NULL;
     }
 
     TCHAR buffer[256];
-    _stprintf_s(buffer, L"CWaterShader::CreateShader: m_ppd3dPipelineStates[0] = %p (after creation attempt)\n", m_ppd3dPipelineStates[0]);
+    _stprintf_s(buffer, L"CWaterShader::CreateShader: m_ppd3dPipelineStates[0] = %p, m_ppd3dPipelineStates[1] = %p (after creation attempt)\n", m_ppd3dPipelineStates[0], m_ppd3dPipelineStates[1]);
     OutputDebugString(buffer);
 
     if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) {

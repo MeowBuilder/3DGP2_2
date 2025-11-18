@@ -454,6 +454,11 @@ CGameObject *CGameObject::FindFrame(char *pstrFrameName)
 
 void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
+	Render(pd3dCommandList, pCamera, 0);
+}
+
+void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState)
+{
 	if (!m_bRender) return;
 
 	OnPrepareRender();
@@ -466,7 +471,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 		{
 			if (m_ppMaterials[i])
 			{
-				if (m_ppMaterials[i]->m_pShader) m_ppMaterials[i]->m_pShader->OnPrepareRender(pd3dCommandList);
+				if (m_ppMaterials[i]->m_pShader) m_ppMaterials[i]->m_pShader->OnPrepareRender(pd3dCommandList, nPipelineState);
 				m_ppMaterials[i]->UpdateShaderVariables(pd3dCommandList);
 			}
 
@@ -480,7 +485,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 	{
 		if ((m_nMaterials == 1) && (m_ppMaterials[0]))
 		{
-			if (m_ppMaterials[0]->m_pShader) m_ppMaterials[0]->m_pShader->OnPrepareRender(pd3dCommandList);
+			if (m_ppMaterials[0]->m_pShader) m_ppMaterials[0]->m_pShader->OnPrepareRender(pd3dCommandList, nPipelineState);
 			m_ppMaterials[0]->UpdateShaderVariables(pd3dCommandList);
 		}
 
@@ -493,8 +498,101 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 		}
 	}
 
-	if (m_pSibling) m_pSibling->Render(pd3dCommandList, pCamera);
-	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera);
+	if (m_pSibling) m_pSibling->Render(pd3dCommandList, pCamera, nPipelineState);
+	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, nPipelineState);
+}
+
+void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+{
+	if (!m_bRender) return;
+
+	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+
+	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
+	XMFLOAT4X4 xmf4x4World;
+	XMStoreFloat4x4(&xmf4x4World, mtxWorld);
+
+	if (pCamera) UpdateShaderVariable(pd3dCommandList, &xmf4x4World);
+
+
+	if (m_nMaterials > 0)
+	{
+		for (int i = 0; i < m_nMaterials; i++)
+		{
+			if (m_ppMaterials[i])
+			{
+				m_ppMaterials[i]->UpdateShaderVariables(pd3dCommandList);
+			}
+
+			if (m_nMeshes == 1)
+			{
+				if (m_ppMeshes[0]) m_ppMeshes[0]->Render(pd3dCommandList, i);
+			}
+		}
+	}
+	else
+	{
+		if (m_ppMeshes)
+		{
+			for (int i = 0; i < m_nMeshes; i++)
+			{
+				if (m_ppMeshes[i]) m_ppMeshes[i]->Render(pd3dCommandList, 0);
+			}
+		}
+	}
+
+	if (m_pSibling) m_pSibling->Render(pd3dCommandList, pCamera, xmmtxReflection);
+	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, xmmtxReflection);
+}
+
+void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState)
+{
+	if (!m_bRender) return;
+
+	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+
+	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
+	XMFLOAT4X4 xmf4x4World;
+	XMStoreFloat4x4(&xmf4x4World, mtxWorld);
+
+	if (pCamera) UpdateShaderVariable(pd3dCommandList, &xmf4x4World);
+
+
+	if (m_nMaterials > 1)
+	{
+		for (int i = 0; i < m_nMaterials; i++)
+		{
+			if (m_ppMaterials[i])
+			{
+				if (m_ppMaterials[i]->m_pShader) m_ppMaterials[i]->m_pShader->OnPrepareRender(pd3dCommandList, nPipelineState);
+				m_ppMaterials[i]->UpdateShaderVariables(pd3dCommandList);
+			}
+
+			if (m_nMeshes == 1)
+			{
+				if (m_ppMeshes[0]) m_ppMeshes[0]->Render(pd3dCommandList, i);
+			}
+		}
+	}
+	else
+	{
+		if ((m_nMaterials == 1) && (m_ppMaterials[0]))
+		{
+			if (m_ppMaterials[0]->m_pShader) m_ppMaterials[0]->m_pShader->OnPrepareRender(pd3dCommandList, nPipelineState);
+			m_ppMaterials[0]->UpdateShaderVariables(pd3dCommandList);
+		}
+
+		if (m_ppMeshes)
+		{
+			for (int i = 0; i < m_nMeshes; i++)
+			{
+				if (m_ppMeshes[i]) m_ppMeshes[i]->Render(pd3dCommandList, 0);
+			}
+		}
+	}
+
+	if (m_pSibling) m_pSibling->Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
+	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
 }
 
 void CGameObject::RenderOBB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, CMesh* pOBBMesh, CMaterial* pOBBMaterial)
@@ -1027,6 +1125,15 @@ void CSkyBox::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamer
 	CGameObject::Render(pd3dCommandList, pCamera);
 }
 
+void CSkyBox::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState)
+{
+	XMFLOAT3 xmf3CameraPos = pCamera->GetPosition();
+	SetPosition(xmf3CameraPos.x, xmf3CameraPos.y, xmf3CameraPos.z);
+	Rotate(0.0f, 180.0f, 0.0f);
+
+	CGameObject::Render(pd3dCommandList, pCamera, nPipelineState);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 CSuperCobraObject::CSuperCobraObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature) : CGameObject(0, 0)
@@ -1178,3 +1285,89 @@ CHeightMapTerrain::~CHeightMapTerrain(void)
 {
 	if (m_pHeightMapImage) delete m_pHeightMapImage;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+CMirrorObject::CMirrorObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList) : CGameObject(1, 1) // 1 mesh, 1 material
+{
+    // Create the CPlaneMesh for the mirror
+    CMesh* pPlaneMesh = new CPlaneMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f, 1.0f); // Default unit plane
+    SetMesh(0, pPlaneMesh);
+
+    // Create a material for the mirror
+    CMaterial* pMirrorMaterial = new CMaterial();
+    // Set diffuse color to red for debugging
+    pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+    // No texture for now, just a solid color
+    SetMaterial(0, pMirrorMaterial);
+
+    // Initialize mirror plane to default (e.g., XZ plane at Y=0, facing +Y)
+    m_xmf4MirrorPlane = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f); // A=0, B=1, C=0, D=0 => Y = 0
+}
+
+CMirrorObject::~CMirrorObject()
+{
+}
+
+XMFLOAT4 CMirrorObject::GetMirrorPlane()
+{
+    // TODO: 나중에 XMMatrixReflect에 사용할 Mirror Plane 계산 코드 완성 예정
+    // 현재는 월드 변환이 적용된 평면 정보를 반환해야 함.
+    // 예를 들어, 로컬 평면 (0,1,0,0)을 월드 행렬로 변환하여 반환.
+    // For now, return the initialized plane.
+    return m_xmf4MirrorPlane;
+}
+
+void CMirrorObject::SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, float fWidth, float fHeight)
+{
+    // Set position
+    SetPosition(vCenter.x, vCenter.y, vCenter.z);
+
+    // Set scale
+    SetScale(fWidth, fHeight, 1.0f); // Plane is now in XY, so X scale is fWidth, Y scale is fHeight, Z scale is 1.0f (thickness)
+
+    // Calculate rotation to align with normal
+    // Assuming the default plane normal is (0,0,-1) (-Z)
+    // We need to rotate it to match vNormal.
+    XMVECTOR defaultNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f); // New default normal for XY plane
+    XMVECTOR targetNormal = XMLoadFloat3(&vNormal);
+    targetNormal = XMVector3Normalize(targetNormal);
+
+    XMVECTOR rotationAxis = XMVector3Cross(defaultNormal, targetNormal);
+    float angle = XMVectorGetX(XMVector3AngleBetweenVectors(defaultNormal, targetNormal));
+
+    XMMATRIX rotationMatrix = XMMatrixRotationAxis(rotationAxis, angle);
+
+    // Apply rotation to the transform matrix
+    XMMATRIX currentTransform = XMLoadFloat4x4(&m_xmf4x4Transform);
+    XMVECTOR scale, currentRotation, translation;
+    XMMatrixDecompose(&scale, &currentRotation, &translation, currentTransform);
+
+    XMMATRIX newTransform = XMMatrixRotationQuaternion(currentRotation) * rotationMatrix * XMMatrixScalingFromVector(scale) * XMMatrixTranslationFromVector(translation);
+    XMStoreFloat4x4(&m_xmf4x4Transform, newTransform);
+
+    // Update world transform and AABB
+    UpdateTransform(NULL);
+
+    // Update m_xmf4MirrorPlane based on the new world transform
+    // The local plane is Z=0, so its normal is (0,0,-1) and D=0.
+    // Transform the normal and a point on the plane to get the world plane equation.
+    XMVECTOR localPlaneNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f); // New local plane normal for XY plane
+    XMVECTOR localPlanePoint = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f); // Origin on the plane
+
+    XMMATRIX worldMatrix = XMLoadFloat4x4(&m_xmf4x4World);
+
+    // Transform normal (ignore translation)
+    XMVECTOR worldPlaneNormal = XMVector3TransformNormal(localPlaneNormal, worldMatrix);
+    worldPlaneNormal = XMVector3Normalize(worldPlaneNormal);
+
+    // Transform point
+    XMVECTOR worldPlanePoint = XMVector3TransformCoord(localPlanePoint, worldMatrix);
+
+    // Calculate D for the plane equation Ax + By + Cz + D = 0
+    // D = -dot(worldPlaneNormal, worldPlanePoint)
+    float D = -XMVectorGetX(XMVector3Dot(worldPlaneNormal, worldPlanePoint));
+
+    XMStoreFloat4(&m_xmf4MirrorPlane, XMVectorSet(XMVectorGetX(worldPlaneNormal), XMVectorGetY(worldPlaneNormal), XMVectorGetZ(worldPlaneNormal), D));
+}
+

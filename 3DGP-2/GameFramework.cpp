@@ -466,7 +466,7 @@ void CGameFramework::ProcessInput()
 					else
 						m_pPlayer->Rotate(cyDelta, cxDelta, 0.0f);
 				}
-				if (dwDirection) m_pPlayer->Move(dwDirection, 2.15f, true);
+				if (dwDirection) m_pPlayer->Move(dwDirection, 1.55f, true);
 			}
 		}
 		m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
@@ -504,7 +504,6 @@ void CGameFramework::WaitForGpuComplete()
 void CGameFramework::MoveToNextFrame()
 {
 	m_nSwapChainBufferIndex = m_pdxgiSwapChain->GetCurrentBackBufferIndex();
-	//m_nSwapChainBufferIndex = (m_nSwapChainBufferIndex + 1) % m_nSwapChainBuffers;
 
 	UINT64 nFenceValue = ++m_nFenceValues[m_nSwapChainBufferIndex];
 	HRESULT hResult = m_pd3dCommandQueue->Signal(m_pd3dFence, nFenceValue);

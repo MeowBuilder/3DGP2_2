@@ -14,6 +14,8 @@
 #include "GameFramework.h"
 #include "ScreenQuadMesh.h"
 #include "UIShader.h"
+#include "MirrorShader.h"
+#include "Mesh.h"
 
 CDescriptorHeap* CScene::m_pDescriptorHeap = NULL;
 
@@ -148,6 +150,7 @@ CScene::CScene(CGameFramework* pGameFramework)
 
 CScene::~CScene()
 {
+	// m_pMirrorObject is now deleted in ReleaseObjects()
 }
 
 void CScene::BuildDefaultLightsAndMaterials()
@@ -204,12 +207,12 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
 	m_pDescriptorHeap = new CDescriptorHeap();
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 505); 
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 505);
 
 	BuildDefaultLightsAndMaterials();
 
 	m_nShaders = 5;
-	m_ppShaders = new CShader*[m_nShaders];
+	m_ppShaders = new CShader * [m_nShaders];
 
 	m_pSkyBox = new CSkyBox(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 
@@ -224,7 +227,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppShaders[0] = pObjectsShader;
 
 	m_pPlayer = new CTerrainPlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
-	//m_pPlayer = new CAirplanePlayer(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+	m_pPlayer->SetPosition(XMFLOAT3(250, 702, 1750));
 
 	CWaterShader* pWaterShader = new CWaterShader();
 	pWaterShader->AddRef();
@@ -298,40 +301,41 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonHoverTexture, 0);
 	m_pExitButtonHoverTexture->SetRootParameterIndex(0, 0);
 
-	// Create UI for enemy count
-	// 1) Load number texture (0-9 texture sheet)
-	m_pNumberTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pNumberTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/num.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, m_pNumberTexture, 0);
-	m_pNumberTexture->SetRootParameterIndex(0, 0);
+	// Create UI for player speed
+	// 1) Load font texture (0-9, K, m, /, h texture sheet)
+	m_pFontTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pFontTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/Font.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pFontTexture, 0);
+	m_pFontTexture->SetRootParameterIndex(0, 0);
 
-	// 2) Create material for numbers
-	m_pNumberMaterial = new CMaterial();
-	m_pNumberMaterial->AddRef();
-	m_pNumberMaterial->SetTexture(m_pNumberTexture);
-	m_pNumberMaterial->SetShader(pUIShader); // Reuse the same CUIShader
+	// 2) Create material for font
+	m_pFontMaterial = new CMaterial();
+	m_pFontMaterial->AddRef();
+	m_pFontMaterial->SetTexture(m_pFontTexture);
+	m_pFontMaterial->SetShader(pUIShader); // Reuse the same CUIShader
 
-	// 3) Create digit objects (e.g., 3 digits on the top-right of the screen)
-	float digitWidth = 0.05f;
-	float digitHeight = 0.08f;
-	// Base position in normalized coordinates [0,1] (Top-Left is 0,0)
-	float baseX = 0.83f; // Near top-right
-	float baseY = 0.05f;
+	// 3) Create digit objects for speed display
+	// "XXXKm/h" -> 3 digits + "Km/h" (1 char) = 4 characters
+	float charWidth = 0.06f; // Doubled width for each character
+	float charHeight = 0.10f; // Doubled height for each character
+	float totalWidth = charWidth * m_nMaxSpeedDigits; // Total width of the speed display
+	float startX = (1.0f - totalWidth) / 2.0f; // Center alignment
+	float startY = 0.9f; // Bottom of the screen
 
-	for (int i = 0; i < m_nMaxEnemyDigits; i++)
+	for (int i = 0; i < m_nMaxSpeedDigits; i++)
 	{
-		m_pEnemyCountDigits[i] = new CGameObject(1, 1);
+		m_pSpeedDigits[i] = new CGameObject(1, 1);
 
-		// Position each digit next to the previous one
-		float x = baseX + (digitWidth * i);
-		float y = baseY;
+		float x = startX + (charWidth * i);
+		float y = startY;
 
-		CUIRectMesh* pDigitMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, x, y, digitWidth, digitHeight);
-		m_pEnemyCountDigits[i]->SetMesh(0, pDigitMesh);
-		m_pEnemyCountDigits[i]->SetMaterial(0, m_pNumberMaterial);
+		CUIRectMesh* pCharMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, x, y, charWidth, charHeight);
+		m_pSpeedDigits[i]->SetMesh(0, pCharMesh);
+		m_pSpeedDigits[i]->SetMaterial(0, m_pFontMaterial);
 
-		// Set initial UV to display '0'. The SetDigitUV function will be implemented next.
-		SetDigitUV(m_pEnemyCountDigits[i], 0);
+		// Initialize with '0' or 'Km/h'
+		if (i < 3) SetCharUV(m_pSpeedDigits[i], '0'); // For "XXX" part
+		else if (i == 3) SetCharUV(m_pSpeedDigits[i], 'K'); // 'K' will be mapped to the 'Km/h' character
 	}
 
 	m_pBillboardShader = new CBillboardShader();
@@ -345,9 +349,9 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 
 	int nBillboardsToGenerate = 100;
 	m_nBillboardObjects = nBillboardsToGenerate;
-	m_ppBillboardObjects = new CGameObject*[m_nBillboardObjects];
-	
-	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f); 
+	m_ppBillboardObjects = new CGameObject * [m_nBillboardObjects];
+
+	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f);
 	float generationRadius = 200.0f;
 	for (int i = 0; i < nBillboardsToGenerate; ++i)
 	{
@@ -356,7 +360,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		float y = m_pTerrain->GetHeight(x, z) + 1.0f;
 
 		XMFLOAT3 billboardPosition = XMFLOAT3(x, y, z);
-		
+
 		CBillboardObject* pBillboardObject = new CBillboardObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, billboardPosition, m_pBillboardShader, m_pBillboardTexture);
 		m_ppBillboardObjects[i] = pBillboardObject;
 	}
@@ -396,6 +400,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_vExplosions[i]->AddRef();
 	}
 
+
 	// OBB Resources
 	m_pOBBMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 1.0f, 1.0f, 1.0f); // Unit cube
 	m_pOBBMesh->AddRef();
@@ -407,6 +412,36 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pOBBShader->AddRef();
 	pOBBShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	m_pOBBMaterial->SetShader(pOBBShader);
+
+	// Create Building
+	m_pBuildingObject = new CGameObject(1, 1);
+	CCubeMesh* pBuildingMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 50.0f, 50.0f, 50.0f);
+	m_pBuildingObject->SetMesh(0, pBuildingMesh);
+	CMaterial* pBuildingMaterial = new CMaterial();
+	pBuildingMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f); // Gray
+	pBuildingMaterial->SetShader(pObjectsShader);
+	m_pBuildingObject->SetMaterial(0, pBuildingMaterial);
+	m_pBuildingObject->SetPosition(250.0f, 725.0f, 1800.0f);
+	m_pBuildingObject->UpdateTransform(NULL);
+
+	// Create Mirror on the building wall
+	CTexturedRectMesh* pMirrorMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 50.0f, 50.0f, 0.0f);
+	m_pMirrorObject = new CGameObject(1, 1);
+	m_pMirrorObject->SetMesh(0, pMirrorMesh);
+
+	CMaterial* pMirrorMaterial = new CMaterial();
+	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.7f, 0.8f, 0.9f, 0.5f); // Green for debugging
+	pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f); // Semi-transparent
+	m_pMirrorObject->SetMaterial(0, pMirrorMaterial);
+	m_pMirrorObject->SetPosition(250.0f, 725.0f, 1774.9f); // On the Z- face of the building
+	m_pMirrorObject->Rotate(0.0f, 180.0f, 0.0f);
+	m_pMirrorObject->UpdateTransform(NULL);
+
+	m_pMirrorShader = new CMirrorShader(this, m_pMirrorObject);
+	m_pMirrorShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+
+	// Assign the correct shader to the mirror's material
+	pMirrorMaterial->SetShader(m_pMirrorShader);
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
@@ -445,12 +480,13 @@ void CScene::ReleaseObjects()
 	if (m_pTerrain) delete m_pTerrain;
 	if (m_pWater) delete m_pWater;
 	if (m_pSkyBox) delete m_pSkyBox;
-
-
-
-	// Release explosion resources
-	for (auto pExplosion : m_vExplosions)
-	{
+		
+	if (m_pMirrorObject) {
+		delete m_pMirrorObject;
+		m_pMirrorObject = NULL;
+	}
+		
+	for (auto pExplosion : m_vExplosions) {
 		if (pExplosion) pExplosion->Release();
 	}
 	m_vExplosions.clear();
@@ -741,6 +777,7 @@ void CScene::ReleaseUploadBuffers()
 	if (m_pTerrain) m_pTerrain->ReleaseUploadBuffers();
 	if (m_pSkyBox) m_pSkyBox->ReleaseUploadBuffers();
 	if (m_pWater) m_pWater->ReleaseUploadBuffers();
+	if (m_pMirrorObject) m_pMirrorObject->ReleaseUploadBuffers();
 
 	for (int i = 0; i < m_nShaders; i++) m_ppShaders[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseUploadBuffers();
@@ -924,85 +961,72 @@ CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMF
 }
 
 
-int CScene::GetRemainingEnemyCount()
+float CScene::GetPlayerSpeed()
 {
-	// Assuming m_ppShaders[0] is the CObjectsShader that manages enemy objects.
-	CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
-	if (!pObjectsShader)
-	{
-		return 0;
-	}
+	if (!m_pPlayer) return 0.0f;
 
-	int nEnemies = pObjectsShader->GetNumberOfObjects();
-	int nAlive = 0;
+	XMFLOAT3 xmf3Velocity = m_pPlayer->GetVelocity();
+	// Calculate the magnitude of the velocity vector
+	float fSpeedMPS = sqrtf(xmf3Velocity.x * xmf3Velocity.x + xmf3Velocity.y * xmf3Velocity.y + xmf3Velocity.z * xmf3Velocity.z);
 
-	for (int i = 0; i < nEnemies; i++)
-	{
-		CGameObject* pEnemy = pObjectsShader->GetObject(i);
-		// Count only enemies that are set to be rendered.
-		if (pEnemy && pEnemy->m_bRender)
-		{
-			nAlive++;
-		}
-	}
-	return nAlive;
+	// Convert meters per second to kilometers per hour
+	// 1 m/s = 3.6 km/h
+	return fSpeedMPS * 3.6f;
 }
 
-void CScene::SetDigitUV(CGameObject* pDigit, int digit)
+void CScene::SetCharUV(CGameObject* pCharObject, char character)
 {
-	if (!pDigit) return;
+	if (!pCharObject) return;
 
-	// 0~9 클램프
-	if (digit < 0) digit = 0;
-	if (digit > 9) digit = 9;
-
-	int col = digit % 5;
-	int row = digit / 5;   // 0: 0~4, 1: 5~9
-
-	const float cellW = 1.0f / 5.0f;
-	const float cellH = 1.0f / 2.0f;
-
-	float u0 = col * cellW;
-	float u1 = u0 + cellW;
-	float v0 = row * cellH;
-	float v1 = v0 + cellH;
-
-	//  두 번째 줄(5~9)의 세로 위치를 약간 위로 당겨서 정렬
-	//   v는 아래로 갈수록 값이 커지므로, 위로 올리려면 '감소'시켜야 함.
-	if (row == 1)
+	int charIndex = -1;
+	if (character >= '0' && character <= '9')
 	{
-		const float vBias = 0.057f;   // -0.02f ~ -0.05f 사이에서 취향대로 튜닝
-		v0 += vBias;
-		v1 += vBias;
+		charIndex = character - '0';
 	}
+	else if (character == 'K') charIndex = 10; // 'K' now represents the "Km/h" single character
 
-	// 테두리 블리딩 방지 (필요하면 값 더 줄여도 됨)
+	// If character is not found, default to '0'
+	if (charIndex == -1) charIndex = 0; // Default to '0'
+
+	// Assuming Font.dds has characters arranged in a single row: 0-9, Km/h
+	const float totalCharsInRow = 11.0f; // 10 digits + "Km/h"
+	const float cellW = 1.0f / totalCharsInRow;
+	const float cellH = 1.0f; // Assuming single row
+
+	float u0 = charIndex * cellW;
+	float u1 = u0 + cellW;
+	float v0 = 0.0f;
+	float v1 = cellH;
+
+	// Prevent bleeding
 	const float epsU = 0.002f;
 	const float epsV = 0.002f;
 	u0 += epsU; u1 -= epsU;
 	v0 += epsV; v1 -= epsV;
 
-	CUIRectMesh* pMesh = dynamic_cast<CUIRectMesh*>(pDigit->GetMesh(0));
+	CUIRectMesh* pMesh = dynamic_cast<CUIRectMesh*>(pCharObject->GetMesh(0));
 	if (pMesh) pMesh->SetUVRect(u0, v0, u1, v1);
 }
 
-void CScene::UpdateEnemyCountUI()
+void CScene::UpdatePlayerSpeedUI()
 {
-	int nCount = GetRemainingEnemyCount();
+	float fSpeed = GetPlayerSpeed();
+	// Clamp speed to a reasonable range, e.g., 0 to 999
+	if (fSpeed < 0.0f) fSpeed = 0.0f;
+	if (fSpeed > 999.0f) fSpeed = 999.0f; // Max 3 digits
 
-	// Clamp count to the displayable range (0-999).
-	if (nCount < 0) nCount = 0;
-	if (nCount > 999) nCount = 999;
+	// Format the speed into a string "XXX"
+	char szSpeed[16];
+	sprintf_s(szSpeed, "%3.0f", fSpeed); // e.g., "123" or "  0"
 
-	// Decompose the count into hundreds, tens, and ones digits.
-	int d2 = (nCount / 100) % 10; // Hundreds
-	int d1 = (nCount / 10) % 10;  // Tens
-	int d0 = nCount % 10;        // Ones
+	// Update each character's UV coordinates
+	for (int i = 0; i < 3; i++) // "XXX" part
+	{
+		if (m_pSpeedDigits[i]) SetCharUV(m_pSpeedDigits[i], szSpeed[i]);
+	}
 
-	// Update each digit's UV coordinates to display the correct number.
-	if (m_pEnemyCountDigits[0]) SetDigitUV(m_pEnemyCountDigits[0], d2);
-	if (m_pEnemyCountDigits[1]) SetDigitUV(m_pEnemyCountDigits[1], d1);
-	if (m_pEnemyCountDigits[2]) SetDigitUV(m_pEnemyCountDigits[2], d0);
+	// Set " Km/h" part
+	if (m_pSpeedDigits[3]) SetCharUV(m_pSpeedDigits[3], 'K'); // 'K' maps to "Km/h" character
 }
 
 
@@ -1031,132 +1055,66 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			if (m_pExitButtonObject) m_pExitButtonObject->Render(pd3dCommandList, NULL);
 		}
 	}
-	else
+	else // InGame state
 	{
+		// Common setup
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
-
 		pCamera->SetViewportsAndScissorRects(pd3dCommandList);
 		pCamera->UpdateShaderVariables(pd3dCommandList);
-
-		UpdateShaderVariables(pd3dCommandList);
-
+		UpdateShaderVariables(pd3dCommandList); // Updates lights
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
+		//if (m_pMirrorShader)  
+		//	m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
+		// PASS 0: Render scene normally (excluding the mirror surface itself)
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
-
+		if (m_pBuildingObject) m_pBuildingObject->Render(pd3dCommandList, pCamera);
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
-
 		if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera);
-
 		for (int i = 0; i < m_nBillboardObjects; i++)
 		{
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
-
-
-
-		if (m_pWater)
-			m_pWater->Render(pd3dCommandList, pCamera);
+		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
 
-		if (m_bRenderOBB)
+		// --- MIRROR RENDERING PASSES ---
+		if (m_pMirrorShader)
 		{
-			// Render Player OBB
-			if (m_pPlayer) m_pPlayer->RenderOBB(pd3dCommandList, pCamera, m_pOBBMesh, m_pOBBMaterial);
+			// PASS 1: Create Stencil Mask
+			m_pMirrorShader->PreRender(pd3dCommandList, pCamera);
 
-			// Render Enemy OBBs (from CObjectsShader)
-			CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
-			if (pObjectsShader)
-			{
-				int nObjects = pObjectsShader->GetNumberOfObjects();
-				for (int i = 0; i < nObjects; ++i)
-				{
-					CGameObject* pEnemy = pObjectsShader->GetObject(i);
-					if (pEnemy && pEnemy->m_bRender) // Only render OBB for active enemies
-					{
-						pEnemy->RenderOBB(pd3dCommandList, pCamera, m_pOBBMesh, m_pOBBMaterial);
-					}
-				}
-			}
+			// PASS 2 & 3: Setup reflection state and render reflected objects
+			m_pMirrorShader->RenderReflectedObjects(pd3dCommandList, pCamera);
 
-			// Render Billboard OBBs
-			for (int i = 0; i < m_nBillboardObjects; i++)
-			{
-				if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->RenderOBB(pd3dCommandList, pCamera, m_pOBBMesh, m_pOBBMaterial);
-			}
+			// PASS 4 & 5: Restore state and render mirror surface
+			m_pMirrorShader->PostRender(pd3dCommandList, pCamera);
 		}
-		// Render In-Game UI (Enemy Count) using direct draw method
-		UpdateEnemyCountUI();
+
+		// --- UI RENDERING ---
+		UpdatePlayerSpeedUI();
 		CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
-
 		if (pUIShader)
-
 		{
-
-			// 1) Set UI root signature and pipeline state
-
 			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
-
-			pUIShader->Render(pd3dCommandList, nullptr, 0); // Sets the PSO for UI
-
-		
-
-			// 2) Bind the number texture SRV to the root signature (param 0)
-
-			if (m_pNumberTexture)
-
+			pUIShader->Render(pd3dCommandList, nullptr, 0);
+			if (m_pFontTexture && m_pFontTexture->m_pd3dSrvGpuDescriptorHandles[0].ptr != 0)
 			{
-
-				// We need a way to bind a specific texture to a specific root parameter.
-
-				// Assuming a function like this exists or should exist: 
-
-				// void CTexture::UpdateShaderVariable(ID3D12GraphicsCommandList* pd3dCommandList, int nRootParameterIndex, int nTextureIndex)
-
-				// As per the user's suggestion, we call it with root parameter 0 for the UI texture.
-
-				if (m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0].ptr != 0)
-
-				{
-
-					pd3dCommandList->SetGraphicsRootDescriptorTable(0, m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0]);
-
-				}
-
+				pd3dCommandList->SetGraphicsRootDescriptorTable(0, m_pFontTexture->m_pd3dSrvGpuDescriptorHandles[0]);
 			}
-
-		
-
-			// 3) Render only the mesh for each digit, bypassing the CMaterial/CTexture update path.
-
-			for (int i = 0; i < m_nMaxEnemyDigits; i++)
-
+			for (int i = 0; i < m_nMaxSpeedDigits; i++)
 			{
-
-				if (m_pEnemyCountDigits[i])
-
+				if (m_pSpeedDigits[i])
 				{
-
-					CMesh* pMesh = m_pEnemyCountDigits[i]->GetMesh(0);
-
-					if (pMesh)
-
-					{
-
-						pMesh->Render(pd3dCommandList, 0);
-
-					}
-
+					CMesh* pMesh = m_pSpeedDigits[i]->GetMesh(0);
+					if (pMesh) pMesh->Render(pd3dCommandList, 0);
 				}
-
 			}
-
 		}
-
 	}
 
 }
@@ -1223,4 +1181,23 @@ void CScene::RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamer
 
 }
 
-		
+void CScene::RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+
+{
+
+	for (auto& pExplosion : m_vExplosions)
+
+	{
+
+		if (pExplosion && pExplosion->m_bRender)
+
+		{
+
+			pExplosion->Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
+
+		}
+
+	}
+
+
+}

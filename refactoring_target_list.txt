@@ -1,0 +1,50 @@
+사용자께서 요청하신 5가지 핵심 기능과 관련된, 이름 변경 대상 목록입니다.
+
+---
+
+### 1. 시작화면 및 메뉴 (UI) 관련
+
+*   **주요 함수:**
+    *   `OnProcessingMouseMessage`
+    *   `PickObjectByRayIntersection`
+*   **셰이더 및 메시 관련 함수:**
+    *   `CreateUIShader`
+    *   `CreateUIRectMesh`
+    *   `VS_UI`, `PS_UI`
+*   **주요 변수:**
+    *   `m_pStartButtonObject`
+    *   `m_pExitButtonObject`
+
+### 2. 게임 월드 구축 (모델, 지형, 반사) 관련
+
+*   **법선 맵 및 조명:**
+    *   `PSStandard`
+*   **플레이어 및 1인칭 블렌딩:**
+*   **지형, 물, 빌보드(나무/풀):**
+    *   `CWaterObject`
+    *   `CreateWaterShader`, `PSTerrainWater`, `VSTerrainWater`
+    *   `CBillboardObject`
+    *   `CreateBillboardShader`, `VSBillboard`, `PSBillboard`
+    *   `GS_Explosion`
+*   **거울 반사:**
+    *   `CMirrorShader`
+    *   `RenderReflectedObjects`
+
+### 3. 충돌 검사 및 컬링 관련
+
+*   **주요 함수:**
+    *   `UpdateTransform`
+*   **주요 변수 (AABB 관련):**
+    *   `m_WorldAABB`
+    *   `m_xmf3AABBCenter`, `m_xmf3AABBExtents`
+
+### 4. 폭발 효과 관련
+
+*   **주요 함수:**
+    *   `SpawnExplosion`
+    *   `AnimateExplosions`
+    *   `RenderExplosions`
+*   **주요 변수:**
+    *   `m_vExplosions`
+    *   `m_pExplosionMesh`, `m_pExplosionMaterial`
+    *   `m_fAge`

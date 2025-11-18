@@ -81,9 +81,14 @@ public:
 };
 
 class CGameFramework;
+class CMirrorShader;
+#include "Mesh.h"
+
+extern bool g_bEnableMirrorReflection; // Add this
 
 class CScene
 {
+	friend class CMirrorShader;
 public:
     CScene(CGameFramework *pGameFramework);
     ~CScene();
@@ -126,15 +131,15 @@ public:
 
 	CHeightMapTerrain* GetTerrain() { return m_pTerrain; }
 protected:
-	// UI for enemy count
-	CTexture* m_pNumberTexture = nullptr;
-	CMaterial* m_pNumberMaterial = nullptr;
-	static const int m_nMaxEnemyDigits = 3;
-	CGameObject* m_pEnemyCountDigits[m_nMaxEnemyDigits] = { nullptr, };
+	// UI for player speed
+	CTexture* m_pFontTexture = nullptr;
+	CMaterial* m_pFontMaterial = nullptr;
+	static const int m_nMaxSpeedDigits = 4; // e.g., "XXXKm/h"
+	CGameObject* m_pSpeedDigits[m_nMaxSpeedDigits] = { nullptr, };
 
-	int GetRemainingEnemyCount();
-	void SetDigitUV(CGameObject* pDigit, int digit);
-	void UpdateEnemyCountUI();
+	float GetPlayerSpeed();
+	void SetCharUV(CGameObject* pCharObject, char character);
+	void UpdatePlayerSpeedUI();
 
 protected:
 	CGameFramework* m_pGameFramework = NULL;
@@ -154,6 +159,7 @@ protected:
 
 public:
 	void SpawnExplosion(const XMFLOAT3& position);
+	void RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
 
 protected:
 	void AnimateExplosions(float fTimeElapsed);
@@ -176,6 +182,7 @@ protected:
 
 	CSkyBox								*m_pSkyBox = NULL;
 	CHeightMapTerrain*					m_pTerrain = NULL;
+	CGameObject* m_pBuildingObject = NULL;
 
 	CWaterObject*						m_pWater = NULL; // 물 객체
 	XMFLOAT4X4							m_xmf4x4WaterAnimation; // 물 텍스처 애니메이션 매트릭스
@@ -199,6 +206,10 @@ protected:
 	VS_CB_WATER_ANIMATION*				m_pcbMappedWaterAnimation = NULL;
 
 public:
+	CMirrorShader* m_pMirrorShader = NULL;
+	CGameObject* m_pMirrorObject = NULL;
+	CGameObject* m_pMirrorBackObject = NULL;
+
 	static CDescriptorHeap*				m_pDescriptorHeap;
 
 	static void CreateCbvSrvDescriptorHeaps(ID3D12Device* pd3dDevice, int nConstantBufferViews, int nShaderResourceViews);

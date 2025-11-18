@@ -1,8 +1,5 @@
 #pragma once
 
-#define FRAME_BUFFER_WIDTH		1200
-#define FRAME_BUFFER_HEIGHT		800
-
 #include "Timer.h"
 #include "Player.h"
 #include "Scene.h"
@@ -46,6 +43,8 @@ public:
 	GameState GetGameState() { return m_GameState; }
 	void SetGameState(GameState gameState) { m_GameState = gameState; }
 	CPlayer* GetPlayer() { return m_pPlayer; }
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDsvCPUDescriptorHandle() { return m_pd3dDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(); }
+
 public:
 	CCamera* GetCamera() { return m_pCamera; }
 

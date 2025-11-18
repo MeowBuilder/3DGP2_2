@@ -190,6 +190,30 @@ D3D12_BLEND_DESC CShader::CreateBlendState()
 	return(d3dBlendDesc);
 }
 
+D3D12_DEPTH_STENCIL_DESC CShader::CreateReflectionStencilState()
+{
+	D3D12_DEPTH_STENCIL_DESC d = CreateDepthStencilState();
+
+	//  반사 패스에서는 깊이는 읽고 쓰고, 스텐실은 거울 마스크 == 1 인 곳만 패스
+	d.DepthEnable = TRUE;
+	d.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // <--- Changed to ALL
+	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // 약간 여유를 줘도 됨
+
+	//  스텐실: 거울 마스크 == 1 인 곳만 패스
+	d.StencilEnable = TRUE;
+	d.StencilReadMask = 0xff;
+	d.StencilWriteMask = 0x00; // 읽기 전용
+
+	d.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+	d.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	d.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	d.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+
+	d.BackFace = d.FrontFace;
+
+	return d;
+}
+
 void CShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
 {
 	::ZeroMemory(&m_d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
@@ -224,6 +248,7 @@ void CShader::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamer
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+
 CSkyBoxShader::CSkyBoxShader()
 {
 }
@@ -277,16 +302,57 @@ D3D12_SHADER_BYTECODE CSkyBoxShader::CreatePixelShader()
 	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PSSkyBox", "ps_5_1", &m_pd3dPixelShaderBlob));
 }
 
-void CSkyBoxShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
+void CSkyBoxShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-	m_nPipelineStates = 1;
-	m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
+	m_nPipelineStates = 2;
+	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
+	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
-	CShader::CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	::ZeroMemory(&m_d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+
+	m_d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
+	m_d3dPipelineStateDesc.VS = CreateVertexShader();
+	m_d3dPipelineStateDesc.PS = CreatePixelShader();
+	m_d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
+	m_d3dPipelineStateDesc.BlendState = CreateBlendState();
+	m_d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
+	m_d3dPipelineStateDesc.InputLayout = CreateInputLayout();
+	m_d3dPipelineStateDesc.SampleMask = UINT_MAX;
+	m_d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	m_d3dPipelineStateDesc.NumRenderTargets = 1;
+	m_d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	m_d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	m_d3dPipelineStateDesc.SampleDesc.Count = 1;
+	m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
+	// PSO[1]: Reflected Skybox (Cull Back)
+	{
+		D3D12_DEPTH_STENCIL_DESC ds = {};
+		ds.DepthEnable = FALSE;
+		ds.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		ds.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+		ds.StencilEnable = TRUE;
+		ds.StencilReadMask = 0xff;
+		ds.StencilWriteMask = 0x00;
+		ds.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+		ds.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+		ds.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+		ds.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+		ds.BackFace = ds.FrontFace;
+
+		m_d3dPipelineStateDesc.DepthStencilState = ds;
+
+		D3D12_RASTERIZER_DESC rs = CreateRasterizerState();
+		rs.CullMode = D3D12_CULL_MODE_BACK;             // 반사 카메라 기준 winding 보정용
+		m_d3dPipelineStateDesc.RasterizerState = rs;
+
+		pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
+	}
 
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
-
 	if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 }
 
@@ -328,11 +394,12 @@ D3D12_SHADER_BYTECODE CStandardShader::CreatePixelShader()
 	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PSStandard", "ps_5_1", &m_pd3dPixelShaderBlob));
 }
 
-void CStandardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
+void CStandardShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-	m_nPipelineStates = 2; // Now two pipeline states
-	m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
-	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates); // Initialize to NULL
+	HRESULT hResult;
+	m_nPipelineStates = 2;
+	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
+	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dPipelineStateDesc;
 	::ZeroMemory(&d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
@@ -350,28 +417,30 @@ void CStandardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComma
 	d3dPipelineStateDesc.SampleDesc.Count = 1;
 	d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-	// PSO[0]: Solid
-	d3dPipelineStateDesc.RasterizerState = CreateRasterizerState(); // Default solid
-	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[0]);
+	// PSO[0]: Opaque
+	D3D12_RASTERIZER_DESC d3dRasterizerDesc = CreateRasterizerState();
+	d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
 	if (FAILED(hResult))
 	{
-		::MessageBox(NULL, L"CStandardShader::CreateShader() - FAILED Solid PipelineState!", L"Error", MB_OK);
+		::MessageBox(NULL, L"CStandardShader::CreateShader() - FAILED Opaque PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[0] = NULL;
 	}
 
-	// PSO[1]: Wireframe
-	D3D12_RASTERIZER_DESC wireframeRasterizerState = CreateRasterizerState();
-	wireframeRasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	d3dPipelineStateDesc.RasterizerState = wireframeRasterizerState;
-	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[1]);
+	// PSO[1]: Reflection
+	d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
+	d3dRasterizerDesc.FrontCounterClockwise = TRUE;
+	d3dPipelineStateDesc.PS = CreatePixelShader(); // Using CreatePixelShader()
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
 	if (FAILED(hResult))
 	{
-		::MessageBox(NULL, L"CStandardShader::CreateShader() - FAILED Wireframe PipelineState!", L"Error", MB_OK);
+		::MessageBox(NULL, L"CStandardShader::CreateShader() - FAILED Reflection PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[1] = NULL;
 	}
 
-	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs)
-		delete[] d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
+	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -412,10 +481,11 @@ D3D12_SHADER_BYTECODE CExplosionShader::CreatePixelShader(ID3DBlob** ppd3dShader
 	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PS_Explosion", "ps_5_1", ppd3dShaderBlob));
 }
 
-void CExplosionShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
+void CExplosionShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-	m_nPipelineStates = 1;
-	m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
+	HRESULT hResult;
+	m_nPipelineStates = 2;
+	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
 
 	::ZeroMemory(&m_d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 	m_d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
@@ -423,7 +493,7 @@ void CExplosionShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 	m_d3dPipelineStateDesc.GS = CreateGeometryShader(&m_pd3dGeometryShaderBlob);
 	m_d3dPipelineStateDesc.PS = CreatePixelShader(&m_pd3dPixelShaderBlob);
 	m_d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
-	
+
 	D3D12_BLEND_DESC d3dBlendDesc = CreateBlendState();
 	d3dBlendDesc.RenderTarget[0].BlendEnable = TRUE;
 	d3dBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
@@ -444,8 +514,21 @@ void CExplosionShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 	m_d3dPipelineStateDesc.SampleDesc.Count = 1;
 	m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[0]);
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CExplosionShader::CreateShader() - FAILED Opaque PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[0] = NULL;
+	}
+	m_d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
 
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CExplosionShader::CreateShader() - FAILED Reflection PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[1] = NULL;
+	}
+	
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
 	if (m_pd3dGeometryShaderBlob) m_pd3dGeometryShaderBlob->Release();
@@ -491,21 +574,21 @@ XMFLOAT3 RandomPositionInSphere(XMFLOAT3 xmf3Center, float fRadius, int nColumn,
 
 void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, void *pContext)
 {
-	m_ppObjects = new CGameObject*[m_nObjects];
+	m_ppObjects = new CGameObject * [m_nObjects];
 
-	CGameObject *pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
+	CGameObject* pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
 	CGameObject* pGunshipModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/SuperCobra.bin", this);
 
 	CHeightMapTerrain* pTerrain = (CHeightMapTerrain*)pContext;
 
-	int nColumnSpace = 5, nColumnSize = 30;           
-    int nFirstPassColumnSize = (m_nObjects % nColumnSize) > 0 ? (nColumnSize - 1) : nColumnSize;
+	int nColumnSpace = 5, nColumnSize = 30;
+	int nFirstPassColumnSize = (m_nObjects % nColumnSize) > 0 ? (nColumnSize - 1) : nColumnSize;
 
 	int nObjects = 0;
-    for (int h = 0; h < nFirstPassColumnSize; h++)
-    {
-        for (int i = 0; i < floor(float(m_nObjects) / float(nColumnSize)); i++)
-        {
+	for (int h = 0; h < nFirstPassColumnSize; h++)
+	{
+		for (int i = 0; i < floor(float(m_nObjects) / float(nColumnSize)); i++)
+		{
 			if (nObjects % 2)
 			{
 				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
@@ -531,12 +614,12 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
 			m_ppObjects[nObjects++]->PrepareAnimate();
 		}
-    }
+	}
 
-    if (nFirstPassColumnSize != nColumnSize)
-    {
-        for (int i = 0; i < m_nObjects - int(floor(float(m_nObjects) / float(nColumnSize)) * nFirstPassColumnSize); i++)
-        {
+	if (nFirstPassColumnSize != nColumnSize)
+	{
+		for (int i = 0; i < m_nObjects - int(floor(float(m_nObjects) / float(nColumnSize)) * nFirstPassColumnSize); i++)
+		{
 			if (nObjects % 2)
 			{
 				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
@@ -555,9 +638,10 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 850.0f, xmf3RandomPosition.z);
 			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
 			m_ppObjects[nObjects++]->PrepareAnimate();
-        }
-    }
+		}
+	}
 
+	m_ppObjects[nObjects-1]->SetPosition(250.0f, 708.0f, 1700.0f);
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
@@ -676,7 +760,8 @@ D3D12_DEPTH_STENCIL_DESC CPlayerShader::CreatePlayerDepthStencilState()
 
 void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-	m_nPipelineStates = 2;
+	HRESULT hResult;
+	m_nPipelineStates = 3; // Opaque, Blending, Reflection
 	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
 	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
@@ -685,7 +770,6 @@ void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
 	d3dPipelineStateDesc.VS = CreateVertexShader();
 	d3dPipelineStateDesc.PS = CreatePixelShader();
-	d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
 	d3dPipelineStateDesc.InputLayout = CreateInputLayout();
 	d3dPipelineStateDesc.SampleMask = UINT_MAX;
 	d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -698,10 +782,12 @@ void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	// PSO[0]: Opaque
 	d3dPipelineStateDesc.BlendState = CreateBlendState();
 	d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
-	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[0]));
+	d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[0]));
 	if (FAILED(hResult))
 	{
 		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Opaque PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[0] = NULL;
 	}
 
 	// PSO[1]: Blending
@@ -711,7 +797,25 @@ void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	if (FAILED(hResult))
 	{
 		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Blending PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[1] = NULL;
 	}
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Blending PipelineState!", L"Error", MB_OK);
+	}
+
+	// PSO[2]: Reflection (based on Opaque)
+	d3dPipelineStateDesc.BlendState = CreateBlendState();
+	d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
+	D3D12_RASTERIZER_DESC d3dRasterizerDesc = CreateRasterizerState();
+	d3dRasterizerDesc.FrontCounterClockwise = TRUE;
+	d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[2]));
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Reflection PipelineState!", L"Error", MB_OK);
+	}
+
 
 	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs)
 		delete[] d3dPipelineStateDesc.InputLayout.pInputElementDescs;
@@ -758,14 +862,50 @@ D3D12_SHADER_BYTECODE CTerrainShader::CreatePixelShader()
 
 void CTerrainShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
 {
-	m_nPipelineStates = 1;
+	HRESULT hResult;
+	m_nPipelineStates = 2;
 	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
+	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 
-	CShader::CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dPipelineStateDesc;
+	::ZeroMemory(&d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
+	d3dPipelineStateDesc.VS = CreateVertexShader();
+	d3dPipelineStateDesc.PS = CreatePixelShader();
+	d3dPipelineStateDesc.BlendState = CreateBlendState();
+	d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
+	d3dPipelineStateDesc.InputLayout = CreateInputLayout();
+	d3dPipelineStateDesc.SampleMask = UINT_MAX;
+	d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	d3dPipelineStateDesc.NumRenderTargets = 1;
+	d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	d3dPipelineStateDesc.SampleDesc.Count = 1;
+	d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	// PSO[0]: Normal Terrain
+	D3D12_RASTERIZER_DESC d3dRasterizerDesc = CreateRasterizerState();
+	d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CTerrainShader::CreateShader() - FAILED Normal Terrain PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[0] = NULL;
+	}
+
+	// PSO[1]: Reflected Terrain
+	d3dRasterizerDesc.FrontCounterClockwise = TRUE;
+	d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+	d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CTerrainShader::CreateShader() - FAILED Reflected Terrain PipelineState!", L"Error", MB_OK);
+		m_ppd3dPipelineStates[1] = NULL;
+	}
 
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
-
-	if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;
+	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 }
 

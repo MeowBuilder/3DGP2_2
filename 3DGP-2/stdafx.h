@@ -46,8 +46,8 @@ using Microsoft::WRL::ComPtr;
 
 //#define _WITH_SWAPCHAIN_FULLSCREEN_STATE
 
-#define FRAME_BUFFER_WIDTH		1200
-#define FRAME_BUFFER_HEIGHT		800
+#define FRAME_BUFFER_WIDTH		1920
+#define FRAME_BUFFER_HEIGHT		1080
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "d3d12.lib")

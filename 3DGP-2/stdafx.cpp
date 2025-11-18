@@ -1,7 +1,3 @@
-// stdafx.cpp : ǥ�� ���� ���ϸ� ��� �ִ� �ҽ� �����Դϴ�.
-// LabProject03-1.pch�� �̸� �����ϵ� ����� �˴ϴ�.
-// stdafx.obj���� �̸� �����ϵ� ���� ������ ���Ե˴ϴ�.
-
 #include "stdafx.h"
 
 #include "DDSTextureLoader12.h"

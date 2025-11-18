@@ -469,6 +469,115 @@ void CStandardMesh::Render(ID3D12GraphicsCommandList *pd3dCommandList, int nSubS
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+CPlaneMesh::CPlaneMesh(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth, float fHeight, float fURepeat, float fVRepeat) : CMesh(pd3dDevice, pd3dCommandList)
+{
+	m_nVertices = 6;
+	m_d3dPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	m_nType = VERTEXT_NORMAL_TEXTURE; // This type is sufficient for the shader to know what data is available
+
+	m_pxmf3Positions = new XMFLOAT3[m_nVertices];
+	m_pxmf3Normals = new XMFLOAT3[m_nVertices];
+	m_pxmf3Tangents = new XMFLOAT3[m_nVertices]; // Allocate for tangents
+	m_pxmf3BiTangents = new XMFLOAT3[m_nVertices]; // Allocate for bitangents
+	m_pxmf2TextureCoords0 = new XMFLOAT2[m_nVertices];
+
+	float fx = fWidth * 0.5f;
+	float fy = fHeight * 0.5f; // Use fHeight for Y-dimension
+
+	// Vertices for a quad in the XY plane, facing -Z (like a wall mirror)
+	// Normal: (0, 0, -1)
+	// Tangent: (1, 0, 0) (along +X)
+	// Bitangent: (0, 1, 0) (along +Y, for right-handed system with -Z normal)
+	XMFLOAT3 normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	XMFLOAT3 tangent = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	XMFLOAT3 bitangent = XMFLOAT3(0.0f, 1.0f, 0.0f);
+
+	// Triangle 1
+	m_pxmf3Positions[0] = XMFLOAT3(-fx, -fy, 0.0f); m_pxmf3Normals[0] = normal; m_pxmf3Tangents[0] = tangent; m_pxmf3BiTangents[0] = bitangent; m_pxmf2TextureCoords0[0] = XMFLOAT2(0.0f, fVRepeat);
+	m_pxmf3Positions[1] = XMFLOAT3(-fx,  fy, 0.0f); m_pxmf3Normals[1] = normal; m_pxmf3Tangents[1] = tangent; m_pxmf3BiTangents[1] = bitangent; m_pxmf2TextureCoords0[1] = XMFLOAT2(0.0f, 0.0f);
+	m_pxmf3Positions[2] = XMFLOAT3( fx, -fy, 0.0f); m_pxmf3Normals[2] = normal; m_pxmf3Tangents[2] = tangent; m_pxmf3BiTangents[2] = bitangent; m_pxmf2TextureCoords0[2] = XMFLOAT2(fURepeat, fVRepeat);
+
+	// Triangle 2
+	m_pxmf3Positions[3] = XMFLOAT3( fx, -fy, 0.0f); m_pxmf3Normals[3] = normal; m_pxmf3Tangents[3] = tangent; m_pxmf3BiTangents[3] = bitangent; m_pxmf2TextureCoords0[3] = XMFLOAT2(fURepeat, fVRepeat);
+	m_pxmf3Positions[4] = XMFLOAT3(-fx,  fy, 0.0f); m_pxmf3Normals[4] = normal; m_pxmf3Tangents[4] = tangent; m_pxmf3BiTangents[4] = bitangent; m_pxmf2TextureCoords0[4] = XMFLOAT2(0.0f, 0.0f);
+	m_pxmf3Positions[5] = XMFLOAT3( fx,  fy, 0.0f); m_pxmf3Normals[5] = normal; m_pxmf3Tangents[5] = tangent; m_pxmf3BiTangents[5] = bitangent; m_pxmf2TextureCoords0[5] = XMFLOAT2(fURepeat, 0.0f);
+
+	m_pd3dPositionBuffer = ::CreateBufferResource(pd3dDevice, pd3dCommandList, m_pxmf3Positions, sizeof(XMFLOAT3) * m_nVertices, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, &m_pd3dPositionUploadBuffer);
+	m_d3dPositionBufferView.BufferLocation = m_pd3dPositionBuffer->GetGPUVirtualAddress();
+	m_d3dPositionBufferView.StrideInBytes = sizeof(XMFLOAT3);
+	m_d3dPositionBufferView.SizeInBytes = sizeof(XMFLOAT3) * m_nVertices;
+
+	m_pd3dNormalBuffer = ::CreateBufferResource(pd3dDevice, pd3dCommandList, m_pxmf3Normals, sizeof(XMFLOAT3) * m_nVertices, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, &m_pd3dNormalUploadBuffer);
+	m_d3dNormalBufferView.BufferLocation = m_pd3dNormalBuffer->GetGPUVirtualAddress();
+	m_d3dNormalBufferView.StrideInBytes = sizeof(XMFLOAT3);
+	m_d3dNormalBufferView.SizeInBytes = sizeof(XMFLOAT3) * m_nVertices;
+
+	m_pd3dTangentBuffer = ::CreateBufferResource(pd3dDevice, pd3dCommandList, m_pxmf3Tangents, sizeof(XMFLOAT3) * m_nVertices, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, &m_pd3dTangentUploadBuffer);
+	m_d3dTangentBufferView.BufferLocation = m_pd3dTangentBuffer->GetGPUVirtualAddress();
+	m_d3dTangentBufferView.StrideInBytes = sizeof(XMFLOAT3);
+	m_d3dTangentBufferView.SizeInBytes = sizeof(XMFLOAT3) * m_nVertices;
+
+	m_pd3dBiTangentBuffer = ::CreateBufferResource(pd3dDevice, pd3dCommandList, m_pxmf3BiTangents, sizeof(XMFLOAT3) * m_nVertices, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, &m_pd3dBiTangentUploadBuffer);
+	m_d3dBiTangentBufferView.BufferLocation = m_pd3dBiTangentBuffer->GetGPUVirtualAddress();
+	m_d3dBiTangentBufferView.StrideInBytes = sizeof(XMFLOAT3);
+	m_d3dBiTangentBufferView.SizeInBytes = sizeof(XMFLOAT3) * m_nVertices;
+
+	m_pd3dTextureCoord0Buffer = ::CreateBufferResource(pd3dDevice, pd3dCommandList, m_pxmf2TextureCoords0, sizeof(XMFLOAT2) * m_nVertices, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, &m_pd3dTextureCoord0UploadBuffer);
+	m_d3dTextureCoord0BufferView.BufferLocation = m_pd3dTextureCoord0Buffer->GetGPUVirtualAddress();
+	m_d3dTextureCoord0BufferView.StrideInBytes = sizeof(XMFLOAT2);
+	m_d3dTextureCoord0BufferView.SizeInBytes = sizeof(XMFLOAT2) * m_nVertices;
+}
+
+CPlaneMesh::~CPlaneMesh()
+{
+	if (m_pd3dNormalBuffer) m_pd3dNormalBuffer->Release();
+	if (m_pd3dTangentBuffer) m_pd3dTangentBuffer->Release();
+	if (m_pd3dBiTangentBuffer) m_pd3dBiTangentBuffer->Release();
+	if (m_pd3dTextureCoord0Buffer) m_pd3dTextureCoord0Buffer->Release();
+
+	if (m_pxmf3Normals) delete[] m_pxmf3Normals;
+	if (m_pxmf3Tangents) delete[] m_pxmf3Tangents;
+	if (m_pxmf3BiTangents) delete[] m_pxmf3BiTangents;
+	if (m_pxmf2TextureCoords0) delete[] m_pxmf2TextureCoords0;
+}
+
+void CPlaneMesh::ReleaseUploadBuffers()
+{
+	CMesh::ReleaseUploadBuffers();
+
+	if (m_pd3dNormalUploadBuffer) m_pd3dNormalUploadBuffer->Release();
+	m_pd3dNormalUploadBuffer = NULL;
+
+	if (m_pd3dTangentUploadBuffer) m_pd3dTangentUploadBuffer->Release();
+	m_pd3dTangentUploadBuffer = NULL;
+
+	if (m_pd3dBiTangentUploadBuffer) m_pd3dBiTangentUploadBuffer->Release();
+	m_pd3dBiTangentUploadBuffer = NULL;
+
+	if (m_pd3dTextureCoord0UploadBuffer) m_pd3dTextureCoord0UploadBuffer->Release();
+	m_pd3dTextureCoord0UploadBuffer = NULL;
+}
+
+void CPlaneMesh::Render(ID3D12GraphicsCommandList *pd3dCommandList, int nSubSet)
+{
+	pd3dCommandList->IASetPrimitiveTopology(m_d3dPrimitiveTopology);
+
+	// Bind vertex buffers in the order expected by CStandardShader's input layout
+	// POSITION (slot 0), TEXCOORD (slot 1), NORMAL (slot 2), TANGENT (slot 3), BITANGENT (slot 4)
+	D3D12_VERTEX_BUFFER_VIEW pVertexBufferViews[5] = {
+		m_d3dPositionBufferView,
+		m_d3dTextureCoord0BufferView, // TEXCOORD is at slot 1 in CStandardShader
+		m_d3dNormalBufferView,        // NORMAL is at slot 2 in CStandardShader
+		m_d3dTangentBufferView,       // TANGENT is at slot 3 in CStandardShader
+		m_d3dBiTangentBufferView      // BITANGENT is at slot 4 in CStandardShader
+	};
+	pd3dCommandList->IASetVertexBuffers(m_nSlot, 5, pVertexBufferViews); // m_nSlot is 0 by default
+
+	pd3dCommandList->DrawInstanced(m_nVertices, 1, m_nOffset, 0);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 
 CRawFormatImage::CRawFormatImage(LPCTSTR pFileName, int nWidth, int nLength, bool bFlipY)
 {

@@ -35,6 +35,8 @@ public:
 	virtual D3D12_BLEND_DESC CreateBlendState();
 	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
 
+	D3D12_DEPTH_STENCIL_DESC CreateReflectionStencilState();
+
 	virtual D3D12_SHADER_BYTECODE CreateVertexShader();
 	virtual D3D12_SHADER_BYTECODE CreatePixelShader();
 
@@ -123,12 +125,39 @@ public:
 	virtual void ReleaseUploadBuffers();
 
 	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera, int nPipelineState=0);
+	void RenderReflected(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, FXMVECTOR xmMirrorPlane)
+	{
+		CShader::Render(pd3dCommandList, pCamera, 1);
+		OnPrepareRender(pd3dCommandList, 1);
+
+		for (int i = 0; i < m_nObjects; ++i)
+		{
+			CGameObject* pObj = m_ppObjects[i];
+			if (!pObj || !pObj->m_bRender) continue;
+
+			// ① 오브젝트 위치(혹은 AABB 센터)를 가져온다
+			XMFLOAT3 objPos = pObj->GetPosition(); // 월드 기준
+			XMVECTOR vObjPos = XMLoadFloat3(&objPos);
+
+
+			float fDist = XMVectorGetX(XMPlaneDotCoord(xmMirrorPlane, vObjPos));
+
+
+			if (fDist < 0.0f)
+				continue;
+
+
+			pObj->Animate(0.16f);
+			pObj->UpdateTransform(NULL);
+			pObj->Render(pd3dCommandList, pCamera, xmmtxReflection);
+		}
+	}
 
 	int GetNumberOfObjects() { return(m_nObjects); }
 	CGameObject* GetObject(int nIndex) { return m_ppObjects[nIndex]; }
 
 protected:
-	CGameObject						**m_ppObjects = 0;
+	CGameObject** m_ppObjects = 0;
 	int								m_nObjects = 0;
 
 	float							m_fxPitch = 0;

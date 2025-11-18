@@ -151,6 +151,41 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+class CPlaneMesh : public CMesh
+{
+public:
+	CPlaneMesh(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth = 2.0f, float fHeight = 2.0f, float fURepeat = 1.0f, float fVRepeat = 1.0f);
+	virtual ~CPlaneMesh();
+
+protected:
+	XMFLOAT3						*m_pxmf3Normals = NULL;
+	XMFLOAT3						*m_pxmf3Tangents = NULL; // Added for CStandardShader compatibility
+	XMFLOAT3						*m_pxmf3BiTangents = NULL; // Added for CStandardShader compatibility
+	XMFLOAT2						*m_pxmf2TextureCoords0 = NULL;
+
+	ID3D12Resource					*m_pd3dNormalBuffer = NULL;
+	ID3D12Resource					*m_pd3dNormalUploadBuffer = NULL;
+	D3D12_VERTEX_BUFFER_VIEW		m_d3dNormalBufferView;
+
+	ID3D12Resource					*m_pd3dTangentBuffer = NULL; // Added for CStandardShader compatibility
+	ID3D12Resource					*m_pd3dTangentUploadBuffer = NULL; // Added for CStandardShader compatibility
+	D3D12_VERTEX_BUFFER_VIEW		m_d3dTangentBufferView; // Added for CStandardShader compatibility
+
+	ID3D12Resource					*m_pd3dBiTangentBuffer = NULL; // Added for CStandardShader compatibility
+	ID3D12Resource					*m_pd3dBiTangentUploadBuffer = NULL; // Added for CStandardShader compatibility
+	D3D12_VERTEX_BUFFER_VIEW		m_d3dBiTangentBufferView; // Added for CStandardShader compatibility
+
+	ID3D12Resource					*m_pd3dTextureCoord0Buffer = NULL;
+	ID3D12Resource					*m_pd3dTextureCoord0UploadBuffer = NULL;
+	D3D12_VERTEX_BUFFER_VIEW		m_d3dTextureCoord0BufferView;
+
+public:
+	virtual void ReleaseUploadBuffers();
+	virtual void Render(ID3D12GraphicsCommandList *pd3dCommandList, int nSubSet);
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 class CRawFormatImage
 {
 protected:
