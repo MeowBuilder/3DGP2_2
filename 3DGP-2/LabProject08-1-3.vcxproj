@@ -148,7 +148,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Timer.h" />
-    <ClInclude Include="UIRectMesh.h" />
+    <ClInclude Include="UIMesh.h" />
     <ClInclude Include="UIShader.h" />
     <ClInclude Include="WaterObject.h" />
     <ClInclude Include="WaterShader.h" />
@@ -171,7 +171,7 @@
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="UIRectMesh.cpp" />
+    <ClCompile Include="UIMesh.cpp" />
     <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="WaterObject.cpp" />
     <ClCompile Include="WaterShader.cpp" />

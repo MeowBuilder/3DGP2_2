@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "UIRectMesh.h"
+#include "UIMesh.h"
 
-CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height) : CMesh(pd3dDevice, pd3dCommandList)
+CUIMesh::CUIMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height) : CMesh(pd3dDevice, pd3dCommandList)
 {
     m_nVertices = 4;
     m_d3dPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -73,14 +73,14 @@ CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd
     m_d3dIndexBufferView.SizeInBytes = sizeof(UINT) * m_nIndices;
 }
 
-CUIRectMesh::~CUIRectMesh()
+CUIMesh::~CUIMesh()
 {
     if (m_pd3dTextureCoord0Buffer) m_pd3dTextureCoord0Buffer->Release();
     if (m_pxmf2TextureCoords0) delete[] m_pxmf2TextureCoords0;
     if (m_pd3dIndexBuffer) m_pd3dIndexBuffer->Release();
 }
 
-void CUIRectMesh::ReleaseUploadBuffers()
+void CUIMesh::ReleaseUploadBuffers()
 {
     CMesh::ReleaseUploadBuffers();
 
@@ -91,7 +91,7 @@ void CUIRectMesh::ReleaseUploadBuffers()
     m_pd3dIndexUploadBuffer = NULL;
 }
 
-void CUIRectMesh::Render(ID3D12GraphicsCommandList* pd3dCommandList, int nSubSet)
+void CUIMesh::Render(ID3D12GraphicsCommandList* pd3dCommandList, int nSubSet)
 {
     pd3dCommandList->IASetPrimitiveTopology(m_d3dPrimitiveTopology);
     D3D12_VERTEX_BUFFER_VIEW pVertexBufferViews[2] = { m_d3dPositionBufferView, m_d3dTextureCoord0BufferView };
@@ -100,7 +100,7 @@ void CUIRectMesh::Render(ID3D12GraphicsCommandList* pd3dCommandList, int nSubSet
     pd3dCommandList->DrawIndexedInstanced(m_nIndices, 1, 0, 0, 0);
 }
 
-void CUIRectMesh::SetUVRect(float u0, float v0, float u1, float v1)
+void CUIMesh::SetUVRect(float u0, float v0, float u1, float v1)
 {
 	XMFLOAT2 newUVs[4] =
 	{

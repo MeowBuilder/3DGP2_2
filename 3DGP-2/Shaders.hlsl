@@ -179,7 +179,7 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 
 float4 PSStandardPlayer(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
-	float4 c = PSStandard(input); //
+	float4 c = PSStandard(input);
 	
     c.a = 0.3f;
 	

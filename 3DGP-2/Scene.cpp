@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include "Scene.h"
 #include "GameFramework.h" // Added for GameFramework access
-#include "UIRectMesh.h" // Added for UI Rect Mesh
+#include "UIMesh.h" // Added for UI Rect Mesh
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh
 #include "UIShader.h" // Added for UI Shader
 #include "Object.h"
@@ -256,7 +256,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pBackgroundObject->SetMaterial(0, pBackgroundMaterial);
 
 	m_pStartButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.15f, 0.2f, 0.2f);
+	CUIMesh* pStartButtonMesh = new CUIMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.15f, 0.2f, 0.2f);
 	m_pStartButtonObject->SetMesh(0, pStartButtonMesh);
 
 	m_pStartButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -271,7 +271,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pStartButtonObject->SetMaterial(0, pStartButtonMaterial);
 
 	m_pExitButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.55f, 0.2f, 0.2f);
+	CUIMesh* pExitButtonMesh = new CUIMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.55f, 0.2f, 0.2f);
 	m_pExitButtonObject->SetMesh(0, pExitButtonMesh);
 
 	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -321,7 +321,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		float x = startX + (charWidth * i);
 		float y = startY;
 
-		CUIRectMesh* pCharMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, x, y, charWidth, charHeight);
+		CUIMesh* pCharMesh = new CUIMesh(pd3dDevice, pd3dCommandList, x, y, charWidth, charHeight);
 		m_pSpeedDigits[i]->SetMesh(0, pCharMesh);
 		m_pSpeedDigits[i]->SetMaterial(0, m_pFontMaterial);
 
@@ -916,7 +916,7 @@ CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMF
         CMesh* pMesh = pObject->GetMesh(0);
         if (!pMesh) return false;
 
-        CUIRectMesh* pUIMesh = dynamic_cast<CUIRectMesh*>(pMesh);
+        CUIMesh* pUIMesh = dynamic_cast<CUIMesh*>(pMesh);
         if (!pUIMesh) return false;
 
         float normalizedX = pUIMesh->GetNormalizedX();
@@ -989,7 +989,7 @@ void CScene::SetCharUV(CGameObject* pCharObject, char character)
 	u0 += epsU; u1 -= epsU;
 	v0 += epsV; v1 -= epsV;
 
-	CUIRectMesh* pMesh = dynamic_cast<CUIRectMesh*>(pCharObject->GetMesh(0));
+	CUIMesh* pMesh = dynamic_cast<CUIMesh*>(pCharObject->GetMesh(0));
 	if (pMesh) pMesh->SetUVRect(u0, v0, u1, v1);
 }
 

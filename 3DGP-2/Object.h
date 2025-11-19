@@ -308,7 +308,7 @@ public:
 
 protected:
 	bool m_bIsAlive = false;
-	float m_fAge = 0.0f;
+	float m_fLifeTime = 0.0f;
 	int m_nCurrentFrame = 0;
 };
 
@@ -407,11 +407,9 @@ public:
 	CMirrorObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	virtual ~CMirrorObject();
 
-	//
-	XMFLOAT4 m_xmf4MirrorPlane; // Ax + By + Cz + D = 0
+	XMFLOAT4 m_xmf4MirrorPlane;
 
 	XMFLOAT4 GetMirrorPlane();
 
-	//
 	void SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, float fWidth, float fHeight);
 };

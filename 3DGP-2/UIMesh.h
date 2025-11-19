@@ -1,11 +1,11 @@
 #pragma once
 #include "Mesh.h"
 
-class CUIRectMesh : public CMesh
+class CUIMesh : public CMesh
 {
 public:
-    CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height);
-    virtual ~CUIRectMesh();
+    CUIMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height);
+    virtual ~CUIMesh();
 
     void SetUVRect(float u0, float v0, float u1, float v1);
 

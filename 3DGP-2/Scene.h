@@ -9,7 +9,7 @@
 #include "BillboardShader.h"
 #include "PointMesh.h"
 #include "BillboardObject.h" // Added for CBillboardObject
-#include "UIRectMesh.h" // Added for UI Rect Mesh
+#include "UIMesh.h" // Added for UI Rect Mesh
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh (for background)
 #include "UIShader.h" // Added for UI Shader
 #include "WaterObject.h" // Added for CWaterObject

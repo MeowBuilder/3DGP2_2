@@ -506,7 +506,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 {
 	if (!m_bRender) return;
 
-	OnPrepareRender(); //
+	OnPrepareRender();
 
 	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
 	XMFLOAT4X4 xmf4x4World;
@@ -599,34 +599,27 @@ void CGameObject::RenderAABB(ID3D12GraphicsCommandList* pd3dCommandList, CCamera
 {
     if (!m_bRender || !pAABBMesh || !pAABBMaterial) return;
 
-    // Save current transform
     XMFLOAT4X4 xmf4x4OriginalTransform = m_xmf4x4Transform;
     XMFLOAT4X4 xmf4x4OriginalWorld = m_xmf4x4World;
 
-    // Decompose the object's world matrix to get its rotation
     XMVECTOR S, R, T;
     XMMatrixDecompose(&S, &R, &T, XMLoadFloat4x4(&xmf4x4OriginalWorld));
     XMMATRIX rotationMatrix = XMMatrixRotationQuaternion(R);
 
-    // The AABB's world matrix should be: Scale * Rotation * Translation
     XMMATRIX AABBScale = XMMatrixScaling(m_WorldAABB.Extents.x, m_WorldAABB.Extents.y, m_WorldAABB.Extents.z);
-    XMMATRIX AABBRotation = rotationMatrix; // Use the object's rotation
+    XMMATRIX AABBRotation = rotationMatrix;
     XMMATRIX AABBTranslation = XMMatrixTranslation(m_WorldAABB.Center.x, m_WorldAABB.Center.y, m_WorldAABB.Center.z);
 
     XMMATRIX AABBWorldMatrix = AABBScale * AABBRotation * AABBTranslation;
-    XMStoreFloat4x4(&m_xmf4x4World, AABBWorldMatrix); // Temporarily set the object's world matrix for AABB rendering
+    XMStoreFloat4x4(&m_xmf4x4World, AABBWorldMatrix);
 
-    // Set AABB material's shader
     if (pAABBMaterial->m_pShader) pAABBMaterial->m_pShader->OnPrepareRender(pd3dCommandList);
     pAABBMaterial->UpdateShaderVariables(pd3dCommandList);
 
-    // Update shader variable with the AABB's world matrix
     UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
 
-    // Render the AABB mesh
     pAABBMesh->Render(pd3dCommandList,0);
 
-    // Restore original transform
     m_xmf4x4Transform = xmf4x4OriginalTransform;
     m_xmf4x4World = xmf4x4OriginalWorld;
 }
@@ -1044,7 +1037,7 @@ void CExplosionObject::Start(const XMFLOAT3& xmf3Position)
 
 	m_bIsAlive = true;
 	m_bRender = true;
-	m_fAge = 0.0f;
+	m_fLifeTime = 0.0f;
 	m_nCurrentFrame = 0;
     
 	// We'll reuse the m_nType field of CMaterial to pass the frame index.
@@ -1055,11 +1048,11 @@ void CExplosionObject::Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent)
 {
 	if (!m_bIsAlive) return;
 
-	m_fAge += fTimeElapsed;
-	if (m_fAge > EXPLOSION_FRAME_TIME)
+	m_fLifeTime += fTimeElapsed;
+	if (m_fLifeTime > EXPLOSION_FRAME_TIME)
 	{
 		m_nCurrentFrame++;
-		m_fAge = 0.0f;
+		m_fLifeTime = 0.0f;
 		if (m_nCurrentFrame > MAX_EXPLOSION_FRAME)
 		{
 			m_bIsAlive = false;
@@ -1320,16 +1313,11 @@ XMFLOAT4 CMirrorObject::GetMirrorPlane()
 
 void CMirrorObject::SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, float fWidth, float fHeight)
 {
-    // Set position
     SetPosition(vCenter.x, vCenter.y, vCenter.z);
 
-    // Set scale
-    SetScale(fWidth, fHeight, 1.0f); // Plane is now in XY, so X scale is fWidth, Y scale is fHeight, Z scale is 1.0f (thickness)
+    SetScale(fWidth, fHeight, 1.0f);
 
-    // Calculate rotation to align with normal
-    // Assuming the default plane normal is (0,0,-1) (-Z)
-    // We need to rotate it to match vNormal.
-    XMVECTOR defaultNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f); // New default normal for XY plane
+    XMVECTOR defaultNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
     XMVECTOR targetNormal = XMLoadFloat3(&vNormal);
     targetNormal = XMVector3Normalize(targetNormal);
 
@@ -1338,7 +1326,6 @@ void CMirrorObject::SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, 
 
     XMMATRIX rotationMatrix = XMMatrixRotationAxis(rotationAxis, angle);
 
-    // Apply rotation to the transform matrix
     XMMATRIX currentTransform = XMLoadFloat4x4(&m_xmf4x4Transform);
     XMVECTOR scale, currentRotation, translation;
     XMMatrixDecompose(&scale, &currentRotation, &translation, currentTransform);
@@ -1346,26 +1333,18 @@ void CMirrorObject::SetMirror(const XMFLOAT3& vCenter, const XMFLOAT3& vNormal, 
     XMMATRIX newTransform = XMMatrixRotationQuaternion(currentRotation) * rotationMatrix * XMMatrixScalingFromVector(scale) * XMMatrixTranslationFromVector(translation);
     XMStoreFloat4x4(&m_xmf4x4Transform, newTransform);
 
-    // Update world transform and AABB
     UpdateTransform(NULL);
 
-    // Update m_xmf4MirrorPlane based on the new world transform
-    // The local plane is Z=0, so its normal is (0,0,-1) and D=0.
-    // Transform the normal and a point on the plane to get the world plane equation.
-    XMVECTOR localPlaneNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f); // New local plane normal for XY plane
-    XMVECTOR localPlanePoint = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f); // Origin on the plane
+    XMVECTOR localPlaneNormal = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
+    XMVECTOR localPlanePoint = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 
     XMMATRIX worldMatrix = XMLoadFloat4x4(&m_xmf4x4World);
 
-    // Transform normal (ignore translation)
     XMVECTOR worldPlaneNormal = XMVector3TransformNormal(localPlaneNormal, worldMatrix);
     worldPlaneNormal = XMVector3Normalize(worldPlaneNormal);
 
-    // Transform point
     XMVECTOR worldPlanePoint = XMVector3TransformCoord(localPlanePoint, worldMatrix);
 
-    // Calculate D for the plane equation Ax + By + Cz + D = 0
-    // D = -dot(worldPlaneNormal, worldPlanePoint)
     float D = -XMVectorGetX(XMVector3Dot(worldPlaneNormal, worldPlanePoint));
 
     XMStoreFloat4(&m_xmf4MirrorPlane, XMVectorSet(XMVectorGetX(worldPlaneNormal), XMVectorGetY(worldPlaneNormal), XMVectorGetZ(worldPlaneNormal), D));
